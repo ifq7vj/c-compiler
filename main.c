@@ -10,6 +10,7 @@ typedef struct Token Token;
 enum TokenKind
 {
     TK_RESERVED,
+    TK_IDENT,
     TK_NUM,
     TK_EOF,
 };
@@ -31,6 +32,7 @@ Token* tokenize(char*);
 
 bool consume(char*);
 void expect(char*);
+char expect_ident(void);
 long expect_number(void);
 bool is_eof(void);
 
@@ -39,6 +41,7 @@ typedef struct Node Node;
 
 enum NodeKind
 {
+    ND_ASG,
     ND_EQ,
     ND_NE,
     ND_LT,
@@ -47,6 +50,7 @@ enum NodeKind
     ND_SUB,
     ND_MUL,
     ND_DIV,
+    ND_VAR,
     ND_NUM,
 };
 
@@ -56,16 +60,19 @@ struct Node
     Node* lhs;
     Node* rhs;
     long val;
+    int ofs;
 };
 
 Node* new_node(NodeKind, Node*, Node*);
-Node* new_node_num(long val);
+Node* new_node_var(char);
+Node* new_node_num(long);
 
 Node* code[256];
 
 void prog(void);
 Node* stmt(void);
 Node* expr(void);
+Node* asg(void);
 Node* equal(void);
 Node* rel(void);
 Node* add(void);
@@ -73,7 +80,8 @@ Node* mul(void);
 Node* unary(void);
 Node* prim(void);
 
-void gen(Node* node);
+void gen(Node*);
+void gen_var(Node*);
 
 int main(int argc, char** argv)
 {
@@ -90,6 +98,9 @@ int main(int argc, char** argv)
     printf(".globl main\n");
 
     printf("\nmain:\n");
+    printf("    push rbp\n");
+    printf("    mov rbp, rsp\n");
+    printf("    sub rsp, %d\n", 26 * 8);
 
     for (int i = 0; code[i]; i++)
     {
@@ -97,7 +108,9 @@ int main(int argc, char** argv)
         printf("    pop rax\n");
     }
 
-    printf("ret\n");
+    printf("    mov rsp, rbp\n");
+    printf("    pop rbp\n");
+    printf("    ret\n");
 
     return 0;
 }
@@ -133,9 +146,15 @@ Token* tokenize(char* p)
             continue;
         }
 
-        if (strchr("+-*/()<>;", *p))
+        if (strchr("+-*/()<>;=", *p))
         {
             cur = new_token(TK_RESERVED, p++, 1, cur);
+            continue;
+        }
+
+        if (islower(*p))
+        {
+            cur = new_token(TK_IDENT, p++, 1, cur);
             continue;
         }
 
@@ -173,7 +192,7 @@ void expect(char* op)
 {
     if (token->kind != TK_RESERVED || token->len != strlen(op) || strncmp(token->str, op, token->len))
     {
-        fprintf(stderr, "Error: \'%.*s\' is not \'%s\'\n", (int)token->len, token->str, op);
+        fprintf(stderr, "Error: \'%.*s\' is not \'%s\'\n", token->len, token->str, op);
         exit(1);
     }
 
@@ -183,11 +202,25 @@ void expect(char* op)
     return;
 }
 
+char expect_ident(void)
+{
+    if (token->kind != TK_IDENT)
+    {
+        return '\0';
+    }
+
+    Token* del = token;
+    char ident = token->str[0];
+    token = token->next;
+    free(del);
+    return ident;
+}
+
 long expect_number(void)
 {
     if (token->kind != TK_NUM)
     {
-        fprintf(stderr, "Error: \'%.*s\' is not number\n", (int)token->len, token->str);
+        fprintf(stderr, "Error: \'%.*s\' is not number\n", token->len, token->str);
         exit(1);
     }
 
@@ -215,6 +248,14 @@ Node* new_node(NodeKind kind, Node* lhs, Node* rhs)
     node->kind = kind;
     node->lhs = lhs;
     node->rhs = rhs;
+    return node;
+}
+
+Node* new_node_var(char ident)
+{
+    Node* node = calloc(1, sizeof(Node));
+    node->kind = ND_VAR;
+    node->ofs = (ident - 'a' + 1) * 8;
     return node;
 }
 
@@ -248,7 +289,19 @@ Node* stmt(void)
 
 Node* expr(void)
 {
-    return equal();
+    return asg();
+}
+
+Node* asg(void)
+{
+    Node* node = equal();
+
+    if (consume("="))
+    {
+        node = new_node(ND_ASG, node, asg());
+    }
+
+    return node;
 }
 
 Node* equal(void)
@@ -375,16 +428,42 @@ Node* prim(void)
         return node;
     }
 
+    char ident = expect_ident();
+
+    if (ident)
+    {
+        Node* node = new_node_var(ident);
+        return node;
+    }
+
     return new_node_num(expect_number());
 }
 
 void gen(Node* node)
 {
-    if (node->kind == ND_NUM)
+    switch (node->kind)
     {
-        printf("    push %ld\n", node->val);
-        free(node);
-        return;
+        case ND_ASG:
+            gen_var(node->lhs);
+            gen(node->rhs);
+            printf("    pop rdi\n");
+            printf("    pop rax\n");
+            printf("    mov [rax], rdi\n");
+            printf("    push rdi\n");
+            free(node);
+            return;
+
+        case ND_VAR:
+            gen_var(node);
+            printf("    pop rax\n");
+            printf("    mov rax, [rax]\n");
+            printf("    push rax\n");
+            return;
+        
+        case ND_NUM:
+            printf("    push %ld\n", node->val);
+            free(node);
+            return;
     }
 
     gen(node->lhs);
@@ -440,6 +519,21 @@ void gen(Node* node)
             break;
     }
 
+    printf("    push rax\n");
+    free(node);
+    return;
+}
+
+void gen_var(Node* node)
+{
+    if (node->kind != ND_VAR)
+    {
+        fprintf(stderr, "Error: Lvalue is not variable\n");
+        exit(1);
+    }
+
+    printf("    mov rax, rbp\n");
+    printf("    sub rax, %d\n", node->ofs);
     printf("    push rax\n");
     free(node);
     return;
