@@ -61,6 +61,10 @@ struct Node
 Node* new_node(NodeKind, Node*, Node*);
 Node* new_node_num(long val);
 
+Node* code[256];
+
+void prog(void);
+Node* stmt(void);
 Node* expr(void);
 Node* equal(void);
 Node* rel(void);
@@ -80,17 +84,20 @@ int main(int argc, char** argv)
     }
 
     token = tokenize(argv[1]);
-    Node* node = expr();
+    prog();
 
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
 
     printf("\nmain:\n");
 
-    gen(node);
+    for (int i = 0; code[i]; i++)
+    {
+        gen(code[i]);
+        printf("    pop rax\n");
+    }
 
-    printf("    pop rax\n");
-    printf("    ret\n");
+    printf("ret\n");
 
     return 0;
 }
@@ -126,7 +133,7 @@ Token* tokenize(char* p)
             continue;
         }
 
-        if (strchr("+-*/()<>", *p))
+        if (strchr("+-*/()<>;", *p))
         {
             cur = new_token(TK_RESERVED, p++, 1, cur);
             continue;
@@ -216,6 +223,26 @@ Node* new_node_num(long val)
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_NUM;
     node->val = val;
+    return node;
+}
+
+void prog(void)
+{
+    int i = 0;
+
+    while (!is_eof())
+    {
+        code[i++] = stmt();
+    }
+
+    code[i] = NULL;
+    return;
+}
+
+Node* stmt(void)
+{
+    Node* node = expr();
+    expect(";");
     return node;
 }
 
