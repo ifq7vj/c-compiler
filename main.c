@@ -32,7 +32,6 @@ Token* tokenize(char*);
 
 bool consume(char*);
 void expect(char*);
-char expect_ident(void);
 long expect_number(void);
 bool is_eof(void);
 
@@ -64,8 +63,24 @@ struct Node
 };
 
 Node* new_node(NodeKind, Node*, Node*);
-Node* new_node_var(char);
+Node* new_node_var(int);
 Node* new_node_num(long);
+
+typedef struct Var Var;
+
+struct Var
+{
+    Var* next;
+    char* name;
+    int len;
+    int ofs;
+};
+
+Var* local;
+
+Var* new_var(char*, int);
+
+Var* find_var(char*, int);
 
 Node* code[256];
 
@@ -92,6 +107,7 @@ int main(int argc, char** argv)
     }
 
     token = tokenize(argv[1]);
+    local = calloc(1, sizeof(Var));
     prog();
 
     printf(".intel_syntax noprefix\n");
@@ -100,7 +116,7 @@ int main(int argc, char** argv)
     printf("\nmain:\n");
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");
-    printf("    sub rsp, %d\n", 26 * 8);
+    printf("    sub rsp, %d\n", local->ofs);
 
     for (int i = 0; code[i]; i++)
     {
@@ -152,9 +168,12 @@ Token* tokenize(char* p)
             continue;
         }
 
-        if (islower(*p))
+        if (isalpha(*p) || *p == '_')
         {
-            cur = new_token(TK_IDENT, p++, 1, cur);
+            cur = new_token(TK_IDENT, p, 0, cur);
+            char* q = p;
+            while (isalnum(*p) || *p == '_') p++;
+            cur->len = p - q;
             continue;
         }
 
@@ -177,7 +196,7 @@ Token* tokenize(char* p)
 
 bool consume(char* op)
 {
-    if (token->kind != TK_RESERVED || token->len != strlen(op) || strncmp(token->str, op, token->len))
+    if (token->kind != TK_RESERVED || token->len != strlen(op) || strncmp(token->str, op, strlen(op)))
     {
         return false;
     }
@@ -190,7 +209,7 @@ bool consume(char* op)
 
 void expect(char* op)
 {
-    if (token->kind != TK_RESERVED || token->len != strlen(op) || strncmp(token->str, op, token->len))
+    if (token->kind != TK_RESERVED || token->len != strlen(op) || strncmp(token->str, op, strlen(op)))
     {
         fprintf(stderr, "Error: \'%.*s\' is not \'%s\'\n", token->len, token->str, op);
         exit(1);
@@ -202,20 +221,6 @@ void expect(char* op)
     return;
 }
 
-char expect_ident(void)
-{
-    if (token->kind != TK_IDENT)
-    {
-        return '\0';
-    }
-
-    Token* del = token;
-    char ident = token->str[0];
-    token = token->next;
-    free(del);
-    return ident;
-}
-
 long expect_number(void)
 {
     if (token->kind != TK_NUM)
@@ -224,8 +229,8 @@ long expect_number(void)
         exit(1);
     }
 
-    Token* del = token;
     long val = token->val;
+    Token* del = token;
     token = token->next;
     free(del);
     return val;
@@ -251,11 +256,11 @@ Node* new_node(NodeKind kind, Node* lhs, Node* rhs)
     return node;
 }
 
-Node* new_node_var(char ident)
+Node* new_node_var(int ofs)
 {
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_VAR;
-    node->ofs = (ident - 'a' + 1) * 8;
+    node->ofs = ofs;
     return node;
 }
 
@@ -265,6 +270,30 @@ Node* new_node_num(long val)
     node->kind = ND_NUM;
     node->val = val;
     return node;
+}
+
+Var* new_var(char* name, int len)
+{
+    Var* var = calloc(1, sizeof(Var));
+    var->name = name;
+    var->len = len;
+    var->ofs = local->ofs + 8;
+    var->next = local;
+    local = var;
+    return var;
+}
+
+Var* find_var(char* name, int len)
+{
+    for (Var* var = local; var; var = var->next)
+    {
+        if (var->len == len && !strncmp(var->name, name, len))
+        {
+            return var;
+        }
+    }
+
+    return NULL;
 }
 
 void prog(void)
@@ -428,12 +457,21 @@ Node* prim(void)
         return node;
     }
 
-    char ident = expect_ident();
-
-    if (ident)
+    if (token->kind == TK_IDENT)
     {
-        Node* node = new_node_var(ident);
-        return node;
+        char* name = token->str;
+        int len = token->len;
+        Token* del = token;
+        token = token->next;
+        free(del);
+        Var* var = find_var(name, len);
+
+        if (!var)
+        {
+            var = new_var(name, len);
+        }
+
+        return new_node_var(var->ofs);
     }
 
     return new_node_num(expect_number());
