@@ -49,6 +49,7 @@ enum NodeKind
     ND_SUB,
     ND_MUL,
     ND_DIV,
+    ND_RETURN,
     ND_VAR,
     ND_NUM,
 };
@@ -165,6 +166,13 @@ Token* tokenize(char* p)
         if (strchr("+-*/()<>;=", *p))
         {
             cur = new_token(TK_RESERVED, p++, 1, cur);
+            continue;
+        }
+
+        if (!strncmp(p, "return", 6) && !(isalnum(p[6]) || p[6] == '_'))
+        {
+            cur = new_token(TK_RESERVED, p, 6, cur);
+            p += 6;
             continue;
         }
 
@@ -311,6 +319,15 @@ void prog(void)
 
 Node* stmt(void)
 {
+    if (consume("return"))
+    {
+        Node* node = calloc(1, sizeof(Node));
+        node->kind = ND_RETURN;
+        node->lhs = expr();
+        expect(";");
+        return node;
+    }
+
     Node* node = expr();
     expect(";");
     return node;
@@ -481,6 +498,15 @@ void gen(Node* node)
 {
     switch (node->kind)
     {
+        case ND_RETURN:
+            gen(node->lhs);
+            printf("    pop rax\n");
+            printf("    mov rsp, rbp\n");
+            printf("    pop rbp\n");
+            printf("    ret\n");
+            free(node);
+            return;
+
         case ND_ASG:
             gen_var(node->lhs);
             gen(node->rhs);
