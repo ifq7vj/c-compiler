@@ -49,6 +49,9 @@ enum NodeKind
     ND_SUB,
     ND_MUL,
     ND_DIV,
+    ND_IFEL,
+    ND_WHILE,
+    ND_FOR,
     ND_RETURN,
     ND_VAR,
     ND_NUM,
@@ -57,11 +60,16 @@ enum NodeKind
 struct Node
 {
     NodeKind kind;
-    Node* lhs;
-    Node* rhs;
+    Node* op1;
+    Node* op2;
+    Node* op3;
+    Node* op4;
     long val;
     int ofs;
+    int label;
 };
+
+int jump;
 
 Node* new_node(NodeKind, Node*, Node*);
 Node* new_node_var(int);
@@ -109,6 +117,7 @@ int main(int argc, char** argv)
 
     token = tokenize(argv[1]);
     local = calloc(1, sizeof(Var));
+    jump = 0;
     prog();
 
     printf(".intel_syntax noprefix\n");
@@ -166,6 +175,34 @@ Token* tokenize(char* p)
         if (strchr("+-*/()<>;=", *p))
         {
             cur = new_token(TK_RESERVED, p++, 1, cur);
+            continue;
+        }
+
+        if (!strncmp(p, "if", 2) && !(isalnum(p[2]) || p[2] == '_'))
+        {
+            cur = new_token(TK_RESERVED, p, 2, cur);
+            p += 2;
+            continue;
+        }
+
+        if (!strncmp(p, "else", 4) && !(isalnum(p[4]) || p[4] == '_'))
+        {
+            cur = new_token(TK_RESERVED, p, 4, cur);
+            p += 4;
+            continue;
+        }
+
+        if (!strncmp(p, "while", 5) && !(isalnum(p[5]) || p[5] == '_'))
+        {
+            cur = new_token(TK_RESERVED, p, 5, cur);
+            p += 5;
+            continue;
+        }
+
+        if (!strncmp(p, "for", 3) && !(isalnum(p[3]) || p[3] == '_'))
+        {
+            cur = new_token(TK_RESERVED, p, 3, cur);
+            p += 3;
             continue;
         }
 
@@ -255,12 +292,12 @@ bool is_eof(void)
     return true;
 }
 
-Node* new_node(NodeKind kind, Node* lhs, Node* rhs)
+Node* new_node(NodeKind kind, Node* op1, Node* op2)
 {
     Node* node = calloc(1, sizeof(Node));
     node->kind = kind;
-    node->lhs = lhs;
-    node->rhs = rhs;
+    node->op1 = op1;
+    node->op2 = op2;
     return node;
 }
 
@@ -319,11 +356,65 @@ void prog(void)
 
 Node* stmt(void)
 {
+    if (consume("if"))
+    {
+        Node* node = calloc(1, sizeof(Node));
+        node->kind = ND_IFEL;
+        node->label = jump;
+        jump += 2;
+        expect("(");
+        node->op1 = expr();
+        expect(")");
+        node->op2 = stmt();
+
+        if (consume("else"))
+        {
+            node->op3 = stmt();
+        }
+
+        else
+        {
+            node->op3 = new_node_num(0);
+        }
+
+        return node;
+    }
+
+    if (consume("while"))
+    {
+        Node* node = calloc(1, sizeof(Node));
+        node->kind = ND_WHILE;
+        node->label = jump;
+        jump += 2;
+        expect("(");
+        node->op1 = expr();
+        expect(")");
+        node->op2 = stmt();
+        return node;
+    }
+
+    if (consume("for"))
+    {
+        Node* node = calloc(1, sizeof(Node));
+        node->kind = ND_FOR;
+        node->label = jump;
+        jump += 2;
+        expect("(");
+        node->op1 = expr();
+        expect(";");
+        node->op2 = expr();
+        expect(";");
+        node->op3 = expr();
+        expect(")");
+        node->op4 = stmt();
+        return node;
+    }
+
     if (consume("return"))
     {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_RETURN;
-        node->lhs = expr();
+        node->op1 = expr();
         expect(";");
         return node;
     }
@@ -498,8 +589,55 @@ void gen(Node* node)
 {
     switch (node->kind)
     {
+        case ND_IFEL:
+            gen(node->op1);
+            printf("    pop rax\n");
+            printf("    cmp rax, 0\n");
+            printf("    je .L%d\n", node->label);
+            gen(node->op2);
+            printf("    pop rax\n");
+            printf("    jmp .L%d\n", node->label + 1);
+            printf("\n.L%d:\n", node->label);
+            gen(node->op3);
+            printf("    pop rax\n");
+            printf("\n.L%d:\n", node->label + 1);
+            printf("    push 0\n");
+            free(node);
+            return;
+        
+        case ND_WHILE:
+            printf("\n.L%d:\n", node->label);
+            gen(node->op1);
+            printf("    pop rax\n");
+            printf("    cmp rax, 0\n");
+            printf("    je .L%d\n", node->label + 1);
+            gen(node->op2);
+            printf("    pop rax\n");
+            printf("    jmp .L%d\n", node->label);
+            printf("\n.L%d:\n", node->label + 1);
+            printf("    push 0\n");
+            free(node);
+            return;
+
+        case ND_FOR:
+            gen(node->op1);
+            printf("\n.L%d:\n", node->label);
+            gen(node->op2);
+            printf("    pop rax\n");
+            printf("    cmp rax, 0\n");
+            printf("    je .L%d\n", node->label + 1);
+            gen(node->op4);
+            printf("    pop rax\n");
+            gen(node->op3);
+            printf("    pop rax\n");
+            printf("    jmp .L%d\n", node->label);
+            printf("\n.L%d:\n", node->label + 1);
+            printf("    push 0\n");
+            free(node);
+            return;
+
         case ND_RETURN:
-            gen(node->lhs);
+            gen(node->op1);
             printf("    pop rax\n");
             printf("    mov rsp, rbp\n");
             printf("    pop rbp\n");
@@ -508,8 +646,8 @@ void gen(Node* node)
             return;
 
         case ND_ASG:
-            gen_var(node->lhs);
-            gen(node->rhs);
+            gen_var(node->op1);
+            gen(node->op2);
             printf("    pop rdi\n");
             printf("    pop rax\n");
             printf("    mov [rax], rdi\n");
@@ -530,8 +668,8 @@ void gen(Node* node)
             return;
     }
 
-    gen(node->lhs);
-    gen(node->rhs);
+    gen(node->op1);
+    gen(node->op2);
 
     printf("    pop rdi\n");
     printf("    pop rax\n");
