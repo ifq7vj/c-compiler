@@ -49,6 +49,7 @@ enum NodeKind
     ND_SUB,
     ND_MUL,
     ND_DIV,
+    ND_BLOCK,
     ND_IFEL,
     ND_WHILE,
     ND_FOR,
@@ -60,6 +61,7 @@ enum NodeKind
 struct Node
 {
     NodeKind kind;
+    Node* next;
     Node* op1;
     Node* op2;
     Node* op3;
@@ -72,7 +74,7 @@ struct Node
 int jump;
 
 Node* new_node(NodeKind, Node*, Node*);
-Node* new_node_var(int);
+Node* new_node_var(void);
 Node* new_node_num(long);
 
 typedef struct Var Var;
@@ -172,7 +174,7 @@ Token* tokenize(char* p)
             continue;
         }
 
-        if (strchr("+-*/()<>;=", *p))
+        if (strchr("+-*/()<>;={}", *p))
         {
             cur = new_token(TK_RESERVED, p++, 1, cur);
             continue;
@@ -301,11 +303,23 @@ Node* new_node(NodeKind kind, Node* op1, Node* op2)
     return node;
 }
 
-Node* new_node_var(int ofs)
+Node* new_node_var(void)
 {
+    char* name = token->str;
+    int len = token->len;
+    Token* del = token;
+    token = token->next;
+    free(del);
+    Var* var = find_var(name, len);
+
+    if (!var)
+    {
+        var = new_var(name, len);
+    }
+
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_VAR;
-    node->ofs = ofs;
+    node->ofs = var->ofs;
     return node;
 }
 
@@ -356,6 +370,21 @@ void prog(void)
 
 Node* stmt(void)
 {
+    if (consume("{"))
+    {
+        Node* node = calloc(1, sizeof(Node));
+        node->kind = ND_BLOCK;
+        Node* item = node;
+
+        while (!consume("}"))
+        {
+            item->next = stmt();
+            item = item->next;
+        }
+
+        return node;
+    }
+
     if (consume("if"))
     {
         Node* node = calloc(1, sizeof(Node));
@@ -567,19 +596,7 @@ Node* prim(void)
 
     if (token->kind == TK_IDENT)
     {
-        char* name = token->str;
-        int len = token->len;
-        Token* del = token;
-        token = token->next;
-        free(del);
-        Var* var = find_var(name, len);
-
-        if (!var)
-        {
-            var = new_var(name, len);
-        }
-
-        return new_node_var(var->ofs);
+        return new_node_var();
     }
 
     return new_node_num(expect_number());
@@ -589,6 +606,15 @@ void gen(Node* node)
 {
     switch (node->kind)
     {
+        case ND_BLOCK:
+            for (Node* cur = node->next; cur; cur = cur->next)
+            {
+                gen(cur);
+                printf("    pop rax\n");
+            }
+            printf("    push 0\n");
+            return;
+
         case ND_IFEL:
             gen(node->op1);
             printf("    pop rax\n");
