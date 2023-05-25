@@ -7,16 +7,14 @@
 typedef enum TokenKind TokenKind;
 typedef struct Token Token;
 
-enum TokenKind
-{
+enum TokenKind {
     TK_RES,
     TK_ID,
     TK_NUM,
     TK_EOF,
 };
 
-struct Token
-{
+struct Token {
     TokenKind kind;
     Token* next;
     char* str;
@@ -38,8 +36,7 @@ bool is_eof(void);
 typedef enum NodeKind NodeKind;
 typedef struct Node Node;
 
-enum NodeKind
-{
+enum NodeKind {
     ND_ASG,
     ND_EQ,
     ND_NE,
@@ -59,8 +56,7 @@ enum NodeKind
     ND_FNC,
 };
 
-struct Node
-{
+struct Node {
     NodeKind kind;
     Node* head;
     Node* next;
@@ -84,8 +80,7 @@ Node* node_fnc(Node*);
 
 typedef struct Var Var;
 
-struct Var
-{
+struct Var {
     Var* next;
     char* name;
     int len;
@@ -114,10 +109,8 @@ const char* reg_arg[6] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 void gen(Node*);
 void gen_var(Node*);
 
-int main(int argc, char** argv)
-{
-    if (argc != 2)
-    {
+int main(int argc, char** argv) {
+    if (argc != 2) {
         fprintf(stderr, "Usage: <compiler> <source>\n");
         exit(1);
     }
@@ -135,8 +128,7 @@ int main(int argc, char** argv)
     printf("    mov rbp, rsp\n");
     printf("    sub rsp, %d\n", local->ofs);
 
-    for (int i = 0; code[i]; i++)
-    {
+    for (int i = 0; code[i]; i++) {
         gen(code[i]);
         printf("    pop rax\n");
     }
@@ -148,8 +140,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-Token* new_token(TokenKind kind, char* str, int len, Token* cur)
-{
+Token* new_token(TokenKind kind, char* str, int len, Token* cur) {
     Token* tk = calloc(1, sizeof(Token));
     tk->kind = kind;
     tk->str = str;
@@ -158,70 +149,59 @@ Token* new_token(TokenKind kind, char* str, int len, Token* cur)
     return tk;
 }
 
-Token* tokenize(char* p)
-{
+Token* tokenize(char* p) {
     Token head;
     head.next = NULL;
     Token* cur = &head;
 
-    while (*p)
-    {
-        if (isspace(*p))
-        {
+    while (*p) {
+        if (isspace(*p)) {
             p++;
             continue;
         }
 
-        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) || !strncmp(p, "<=", 2) || !strncmp(p, ">=", 2))
-        {
+        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) || !strncmp(p, "<=", 2) || !strncmp(p, ">=", 2)) {
             cur = new_token(TK_RES, p, 2, cur);
             p += 2;
             continue;
         }
 
-        if (strchr("+-*/()<>;={},", *p))
-        {
+        if (strchr("+-*/()<>;={},", *p)) {
             cur = new_token(TK_RES, p++, 1, cur);
             continue;
         }
 
-        if (!strncmp(p, "if", 2) && !(isalnum(p[2]) || p[2] == '_'))
-        {
+        if (!strncmp(p, "if", 2) && !(isalnum(p[2]) || p[2] == '_')) {
             cur = new_token(TK_RES, p, 2, cur);
             p += 2;
             continue;
         }
 
-        if (!strncmp(p, "else", 4) && !(isalnum(p[4]) || p[4] == '_'))
-        {
+        if (!strncmp(p, "else", 4) && !(isalnum(p[4]) || p[4] == '_')) {
             cur = new_token(TK_RES, p, 4, cur);
             p += 4;
             continue;
         }
 
-        if (!strncmp(p, "while", 5) && !(isalnum(p[5]) || p[5] == '_'))
-        {
+        if (!strncmp(p, "while", 5) && !(isalnum(p[5]) || p[5] == '_')) {
             cur = new_token(TK_RES, p, 5, cur);
             p += 5;
             continue;
         }
 
-        if (!strncmp(p, "for", 3) && !(isalnum(p[3]) || p[3] == '_'))
-        {
+        if (!strncmp(p, "for", 3) && !(isalnum(p[3]) || p[3] == '_')) {
             cur = new_token(TK_RES, p, 3, cur);
             p += 3;
             continue;
         }
 
-        if (!strncmp(p, "return", 6) && !(isalnum(p[6]) || p[6] == '_'))
-        {
+        if (!strncmp(p, "return", 6) && !(isalnum(p[6]) || p[6] == '_')) {
             cur = new_token(TK_RES, p, 6, cur);
             p += 6;
             continue;
         }
 
-        if (isalpha(*p) || *p == '_')
-        {
+        if (isalpha(*p) || *p == '_') {
             cur = new_token(TK_ID, p, 0, cur);
             char* q = p;
             while (isalnum(*p) || *p == '_') p++;
@@ -229,8 +209,7 @@ Token* tokenize(char* p)
             continue;
         }
 
-        if (isdigit(*p))
-        {
+        if (isdigit(*p)) {
             cur = new_token(TK_NUM, p, 0, cur);
             char* q = p;
             cur->val = strtol(p, &p, 10);
@@ -246,10 +225,8 @@ Token* tokenize(char* p)
     return head.next;
 }
 
-bool consume(char* op)
-{
-    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op)))
-    {
+bool consume(char* op) {
+    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op))) {
         return false;
     }
 
@@ -259,10 +236,8 @@ bool consume(char* op)
     return true;
 }
 
-void expect(char* op)
-{
-    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op)))
-    {
+void expect(char* op) {
+    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op))) {
         fprintf(stderr, "\'%.*s\' is not \'%s\'\n", token->len, token->str, op);
         exit(1);
     }
@@ -273,10 +248,8 @@ void expect(char* op)
     return;
 }
 
-long expect_num(void)
-{
-    if (token->kind != TK_NUM)
-    {
+long expect_num(void) {
+    if (token->kind != TK_NUM) {
         fprintf(stderr, "\'%.*s\' is not number\n", token->len, token->str);
         exit(1);
     }
@@ -288,10 +261,8 @@ long expect_num(void)
     return val;
 }
 
-bool is_eof(void)
-{
-    if (token->kind != TK_EOF)
-    {
+bool is_eof(void) {
+    if (token->kind != TK_EOF) {
         return false;
     }
 
@@ -299,8 +270,7 @@ bool is_eof(void)
     return true;
 }
 
-Node* node_res(NodeKind kind, Node* op1, Node* op2)
-{
+Node* node_res(NodeKind kind, Node* op1, Node* op2) {
     Node* node = calloc(1, sizeof(Node));
     node->kind = kind;
     node->op1 = op1;
@@ -308,8 +278,7 @@ Node* node_res(NodeKind kind, Node* op1, Node* op2)
     return node;
 }
 
-Node* node_var(void)
-{
+Node* node_var(void) {
     char* name = token->str;
     int len = token->len;
     Token* del = token;
@@ -324,16 +293,14 @@ Node* node_var(void)
     return node;
 }
 
-Node* node_num(long val)
-{
+Node* node_num(long val) {
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_NUM;
     node->val = val;
     return node;
 }
 
-Node* node_fnc(Node* var)
-{
+Node* node_fnc(Node* var) {
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_FNC;
     node->name = var->name;
@@ -341,8 +308,7 @@ Node* node_fnc(Node* var)
     node->val = 0;
     Node* arg;
 
-    while (!consume(")"))
-    {
+    while (!consume(")")) {
         arg = asg();
         arg->next = node->head;
         node->head = arg;
@@ -356,12 +322,9 @@ Node* node_fnc(Node* var)
     return node;
 }
 
-Var* new_var(char* name, int len)
-{
-    for (Var* var = local; var; var = var->next)
-    {
-        if (var->len == len && !strncmp(var->name, name, len))
-        {
+Var* new_var(char* name, int len) {
+    for (Var* var = local; var; var = var->next) {
+        if (var->len == len && !strncmp(var->name, name, len)) {
             return var;
         }
     }
@@ -375,12 +338,10 @@ Var* new_var(char* name, int len)
     return var;
 }
 
-void prog(void)
-{
+void prog(void) {
     int i = 0;
 
-    while (!is_eof())
-    {
+    while (!is_eof()) {
         code[i++] = stmt();
     }
 
@@ -388,17 +349,14 @@ void prog(void)
     return;
 }
 
-Node* stmt(void)
-{
-    if (consume("{"))
-    {
+Node* stmt(void) {
+    if (consume("{")) {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_BLOCK;
         Node* item = calloc(1, sizeof(Node));
         node->head = item;
 
-        while (!consume("}"))
-        {
+        while (!consume("}")) {
             item->next = stmt();
             item = item->next;
         }
@@ -409,8 +367,7 @@ Node* stmt(void)
         return node;
     }
 
-    if (consume("if"))
-    {
+    if (consume("if")) {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_IFEL;
         node->label = jump;
@@ -420,21 +377,16 @@ Node* stmt(void)
         expect(")");
         node->op2 = stmt();
 
-        if (consume("else"))
-        {
+        if (consume("else")) {
             node->op3 = stmt();
-        }
-
-        else
-        {
+        } else {
             node->op3 = node_num(0);
         }
 
         return node;
     }
 
-    if (consume("while"))
-    {
+    if (consume("while")) {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_WHILE;
         node->label = jump;
@@ -446,8 +398,7 @@ Node* stmt(void)
         return node;
     }
 
-    if (consume("for"))
-    {
+    if (consume("for")) {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_FOR;
         node->label = jump;
@@ -463,8 +414,7 @@ Node* stmt(void)
         return node;
     }
 
-    if (consume("return"))
-    {
+    if (consume("return")) {
         Node* node = calloc(1, sizeof(Node));
         node->kind = ND_RET;
         node->op1 = expr();
@@ -477,37 +427,30 @@ Node* stmt(void)
     return node;
 }
 
-Node* expr(void)
-{
+Node* expr(void) {
     return asg();
 }
 
-Node* asg(void)
-{
+Node* asg(void) {
     Node* node = equal();
 
-    if (consume("="))
-    {
+    if (consume("=")) {
         node = node_res(ND_ASG, node, asg());
     }
 
     return node;
 }
 
-Node* equal(void)
-{
+Node* equal(void) {
     Node* node = rel();
 
-    while (true)
-    {
-        if (consume("=="))
-        {
+    while (true) {
+        if (consume("==")) {
             node = node_res(ND_EQ, node, rel());
             continue;
         }
 
-        if (consume("!="))
-        {
+        if (consume("!=")) {
             node = node_res(ND_NE, node, rel());
             continue;
         }
@@ -516,32 +459,26 @@ Node* equal(void)
     }
 }
 
-Node* rel(void)
-{
+Node* rel(void) {
     Node* node = add();
 
-    while (true)
-    {
-        if (consume("<"))
-        {
+    while (true) {
+        if (consume("<")) {
             node = node_res(ND_LT, node, add());
             continue;
         }
 
-        if (consume("<="))
-        {
+        if (consume("<=")) {
             node = node_res(ND_LE, node, add());
             continue;
         }
 
-        if (consume(">"))
-        {
+        if (consume(">")) {
             node = node_res(ND_LT, add(), node);
             continue;
         }
 
-        if (consume(">="))
-        {
+        if (consume(">=")) {
             node = node_res(ND_LE, add(), node);
             continue;
         }
@@ -550,20 +487,16 @@ Node* rel(void)
     }
 }
 
-Node* add(void)
-{
+Node* add(void) {
     Node* node = mul();
 
-    while (true)
-    {
-        if (consume("+"))
-        {
+    while (true) {
+        if (consume("+")) {
             node = node_res(ND_ADD, node, mul());
             continue;
         }
 
-        if (consume("-"))
-        {
+        if (consume("-")) {
             node = node_res(ND_SUB, node, mul());
             continue;
         }
@@ -572,20 +505,16 @@ Node* add(void)
     }
 }
 
-Node* mul(void)
-{
+Node* mul(void) {
     Node* node = unary();
 
-    while (true)
-    {
-        if (consume("*"))
-        {
+    while (true) {
+        if (consume("*")) {
             node = node_res(ND_MUL, node, unary());
             continue;
         }
 
-        if (consume("/"))
-        {
+        if (consume("/")) {
             node = node_res(ND_DIV, node, unary());
             continue;
         }
@@ -594,36 +523,29 @@ Node* mul(void)
     }
 }
 
-Node* unary(void)
-{
-    if (consume("+"))
-    {
+Node* unary(void) {
+    if (consume("+")) {
         return node_res(ND_ADD, node_num(0), unary());
     }
 
-    if (consume("-"))
-    {
+    if (consume("-")) {
         return node_res(ND_SUB, node_num(0), unary());
     }
 
     return prim();
 }
 
-Node* prim(void)
-{
-    if (consume("("))
-    {
+Node* prim(void) {
+    if (consume("(")) {
         Node* node = expr();
         expect(")");
         return node;
     }
 
-    if (token->kind == TK_ID)
-    {
+    if (token->kind == TK_ID) {
         Node* node = node_var();
 
-        if (consume("("))
-        {
+        if (consume("(")) {
             node = node_fnc(node);
         }
 
@@ -633,16 +555,15 @@ Node* prim(void)
     return node_num(expect_num());
 }
 
-void gen(Node* node)
-{
-    switch (node->kind)
-    {
+void gen(Node* node) {
+    switch (node->kind) {
         case ND_BLOCK:
-            for (Node* cur = node->head; cur; cur = cur->next)
-            {
+
+            for (Node* cur = node->head; cur; cur = cur->next) {
                 gen(cur);
                 printf("    pop rax\n");
             }
+
             printf("    push 0\n");
             return;
 
@@ -727,29 +648,29 @@ void gen(Node* node)
         case ND_FNC:
             printf("    push rsp\n");
             printf("    push [rsp]\n");
-            if (node->val > 6 && node->val % 2 == 0)
-            {
+
+            if (node->val > 6 && node->val % 2 == 0) {
                 printf("    add rsp, 8\n");
                 printf("    and rsp, -16\n");
-            }
-            else
-            {
+            } else {
                 printf("    and rsp, -16\n");
                 printf("    add rsp, 8\n");
             }
-            for (Node* cur = node->head; cur; cur = cur->next)
-            {
+
+            for (Node* cur = node->head; cur; cur = cur->next) {
                 gen(cur);
             }
-            for (int i = 0; i < node->val && i < 6; i++)
-            {
+            
+            for (int i = 0; i < node->val && i < 6; i++) {
                 printf("    pop %s\n", reg_arg[i]);
             }
+            
             printf("    call %.*s\n", node->len, node->name);
-            for (int i = 6; i < node->val; i++)
-            {
+            
+            for (int i = 6; i < node->val; i++) {
                 printf("    pop rdi\n");
             }
+            
             printf("    mov rsp, [rsp]\n");
             printf("    push rax\n");
             return;
@@ -764,8 +685,7 @@ void gen(Node* node)
     printf("    pop rdi\n");
     printf("    pop rax\n");
 
-    switch (node->kind)
-    {
+    switch (node->kind) {
         case ND_ADD:
             printf("    add rax, rdi\n");
             break;
@@ -816,10 +736,8 @@ void gen(Node* node)
     return;
 }
 
-void gen_var(Node* node)
-{
-    if (node->kind != ND_VAR)
-    {
+void gen_var(Node* node) {
+    if (node->kind != ND_VAR) {
         fprintf(stderr, "Error: Lvalue is not variable\n");
         exit(1);
     }
