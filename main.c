@@ -347,13 +347,6 @@ Node* node_fnc(Node* var)
         arg->next = node->head;
         node->head = arg;
         node->val++;
-
-        if (node->val > 6)
-        {
-            fprintf(stderr, "too many arguments\n");
-            exit(1);
-        }
-
         if (consume(",")) continue;
         if (consume(")")) break;
         fprintf(stderr, "expected ',' or ')'\n");
@@ -734,17 +727,29 @@ void gen(Node* node)
         case ND_FNC:
             printf("    push rsp\n");
             printf("    push [rsp]\n");
-            printf("    add rsp, 8\n");
-            printf("    and rsp, -16\n");
+            if (node->val > 6 && node->val % 2 == 0)
+            {
+                printf("    add rsp, 8\n");
+                printf("    and rsp, -16\n");
+            }
+            else
+            {
+                printf("    and rsp, -16\n");
+                printf("    add rsp, 8\n");
+            }
             for (Node* cur = node->head; cur; cur = cur->next)
             {
                 gen(cur);
             }
-            for (int i = 0; i < node->val; i++)
+            for (int i = 0; i < node->val && i < 6; i++)
             {
                 printf("    pop %s\n", reg_arg[i]);
             }
             printf("    call %.*s\n", node->len, node->name);
+            for (int i = 6; i < node->val; i++)
+            {
+                printf("    pop rdi\n");
+            }
             printf("    mov rsp, [rsp]\n");
             printf("    push rax\n");
             return;
