@@ -347,6 +347,13 @@ Node* node_fnc(Node* var)
         arg->next = node->head;
         node->head = arg;
         node->val++;
+
+        if (node->val > 6)
+        {
+            fprintf(stderr, "too many arguments\n");
+            exit(1);
+        }
+
         if (consume(",")) continue;
         if (consume(")")) break;
         fprintf(stderr, "expected ',' or ')'\n");
