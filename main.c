@@ -1,6 +1,6 @@
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -119,9 +119,9 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    token = tokenize(argv[1]);
     local = calloc(1, sizeof(Var));
     jump = 0;
+    token = tokenize(argv[1]);
     prog();
     gen_code();
     return 0;
@@ -273,15 +273,13 @@ Node* node_num(long val) {
 }
 
 Node* node_id(void) {
-    char* name = token->str;
-    int len = token->len;
+    Node* node = calloc(1, sizeof(Node));
+    node->kind = ND_ID;
+    node->name = token->str;
+    node->len = token->len;
     Token* del = token;
     token = token->next;
     free(del);
-    Node* node = calloc(1, sizeof(Node));
-    node->kind = ND_ID;
-    node->name = name;
-    node->len = len;
     return node;
 }
 
