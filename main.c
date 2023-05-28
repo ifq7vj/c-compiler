@@ -51,8 +51,9 @@ enum NodeKind {
     ND_WHILE,
     ND_FOR,
     ND_RET,
-    ND_VAR,
     ND_NUM,
+    ND_ID,
+    ND_VAR,
     ND_FNC,
 };
 
@@ -74,8 +75,9 @@ struct Node {
 int jump;
 
 Node* node_res(NodeKind, Node*, Node*);
-Node* node_var(void);
 Node* node_num(long);
+Node* node_id(void);
+Node* node_var(Node*);
 Node* node_fnc(Node*);
 
 typedef struct Var Var;
@@ -89,7 +91,7 @@ struct Var {
 
 Var* local;
 
-Var* new_var(char*, int);
+Var* new_var(Node*);
 
 Node* code[256];
 
@@ -263,21 +265,6 @@ Node* node_res(NodeKind kind, Node* op1, Node* op2) {
     return node;
 }
 
-Node* node_var(void) {
-    char* name = token->str;
-    int len = token->len;
-    Token* del = token;
-    token = token->next;
-    free(del);
-    Var* var = new_var(name, len);
-    Node* node = calloc(1, sizeof(Node));
-    node->kind = ND_VAR;
-    node->name = var->name;
-    node->len = var->len;
-    node->ofs = var->ofs;
-    return node;
-}
-
 Node* node_num(long val) {
     Node* node = calloc(1, sizeof(Node));
     node->kind = ND_NUM;
@@ -285,38 +272,58 @@ Node* node_num(long val) {
     return node;
 }
 
-Node* node_fnc(Node* var) {
+Node* node_id(void) {
+    char* name = token->str;
+    int len = token->len;
+    Token* del = token;
+    token = token->next;
+    free(del);
     Node* node = calloc(1, sizeof(Node));
-    node->kind = ND_FNC;
-    node->name = var->name;
-    node->len = var->len;
-    node->val = 0;
+    node->kind = ND_ID;
+    node->name = name;
+    node->len = len;
+    return node;
+}
+
+Node* node_var(Node* node) {
+    Var* var = new_var(node);
+    node->kind = ND_VAR;
+    node->ofs = var->ofs;
+    return node;
+}
+
+Node* node_fnc(Node* node) {
+    Node* func = calloc(1, sizeof(Node));
+    func->kind = ND_FNC;
+    func->name = node->name;
+    func->len = node->len;
+    func->val = 0;
     Node* arg;
 
     while (!consume(")")) {
         arg = asg();
-        arg->next = node->head;
-        node->head = arg;
-        node->val++;
+        arg->next = func->head;
+        func->head = arg;
+        func->val++;
         if (consume(",")) continue;
         if (consume(")")) break;
         fprintf(stderr, "expected ',' or ')'\n");
         exit(1);
     }
 
-    return node;
+    return func;
 }
 
-Var* new_var(char* name, int len) {
+Var* new_var(Node* node) {
     for (Var* var = local; var; var = var->next) {
-        if (var->len == len && !strncmp(var->name, name, len)) {
+        if (var->len == node->len && !strncmp(var->name, node->name, node->len)) {
             return var;
         }
     }
 
     Var* var = calloc(1, sizeof(Var));
-    var->name = name;
-    var->len = len;
+    var->name = node->name;
+    var->len = node->len;
     var->ofs = local->ofs + 8;
     var->next = local;
     local = var;
@@ -528,13 +535,13 @@ Node* prim(void) {
     }
 
     if (token->kind == TK_ID) {
-        Node* node = node_var();
+        Node* node = node_id();
 
         if (consume("(")) {
-            node = node_fnc(node);
+            return node_fnc(node);
         }
 
-        return node;
+        return node_var(node);
     }
 
     return node_num(expect_num());
