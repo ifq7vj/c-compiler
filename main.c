@@ -53,8 +53,9 @@ enum NodeKind {
     ND_RET,
     ND_NUM,
     ND_ID,
-    ND_VAR,
+    ND_FND,
     ND_FNC,
+    ND_VAR,
 };
 
 struct Node {
@@ -77,8 +78,9 @@ int jump;
 Node* node_res(NodeKind, Node*, Node*);
 Node* node_num(long);
 Node* node_id(void);
-Node* node_var(Node*);
+Node* node_fnd(Node*);
 Node* node_fnc(Node*);
+Node* node_var(Node*);
 
 typedef struct Var Var;
 
@@ -96,6 +98,7 @@ Var* new_var(Node*);
 Node* code[256];
 
 void prog(void);
+Node* func(void);
 Node* stmt(void);
 Node* expr(void);
 Node* asg(void);
@@ -109,6 +112,7 @@ Node* prim(void);
 const char* reg_arg[6] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 void gen_code(void);
+void gen_func(Node*);
 void gen_stmt(Node*);
 void gen_expr(Node*);
 void gen_var(Node*);
@@ -283,11 +287,27 @@ Node* node_id(void) {
     return node;
 }
 
-Node* node_var(Node* node) {
-    Var* var = new_var(node);
-    node->kind = ND_VAR;
-    node->ofs = var->ofs;
-    return node;
+Node* node_fnd(Node* node) {
+    Node* func = calloc(1, sizeof(Node));
+    func->kind = ND_FND;
+    func->name = node->name;
+    func->len = node->len;
+    func->val = 0;
+    Node* arg;
+
+    while (!consume(")")) {
+        arg = asg();
+        arg->next = func->head;
+        func->head = arg;
+        func->val++;
+        if (consume(",")) continue;
+        if (consume(")")) break;
+        fprintf(stderr, "expected ',' or ')'\n");
+        exit(1);
+    }
+
+    func->op1 = stmt();
+    return func;
 }
 
 Node* node_fnc(Node* node) {
@@ -312,6 +332,13 @@ Node* node_fnc(Node* node) {
     return func;
 }
 
+Node* node_var(Node* node) {
+    Var* var = new_var(node);
+    node->kind = ND_VAR;
+    node->ofs = var->ofs;
+    return node;
+}
+
 Var* new_var(Node* node) {
     for (Var* var = local; var; var = var->next) {
         if (var->len == node->len && !strncmp(var->name, node->name, node->len)) {
@@ -332,11 +359,22 @@ void prog(void) {
     int i = 0;
 
     while (!is_eof()) {
-        code[i++] = stmt();
+        code[i++] = func();
     }
 
     code[i] = NULL;
     return;
+}
+
+Node* func(void) {
+    if (token->kind != TK_ID) {
+        fprintf(stderr, "expected function name\n");
+        exit(1);
+    }
+
+    Node* node = node_id();
+    expect("(");
+    return node_fnd(node);
 }
 
 Node* stmt(void) {
@@ -548,16 +586,20 @@ Node* prim(void) {
 void gen_code(void) {
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
-    printf("\nmain:\n");
+
+    for (int i = 0; code[i]; i++) {
+        gen_func(code[i]);
+    }
+
+    return;
+}
+
+void gen_func(Node* node) {
+    printf("\n%.*s:\n", node->len, node->name);
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");
     printf("    sub rsp, %d\n", local->ofs);
-
-    for (int i = 0; code[i]; i++) {
-        gen_stmt(code[i]);
-        printf("    pop rax\n");
-    }
-
+    gen_stmt(node->op1);
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
     printf("    ret\n");
@@ -567,7 +609,6 @@ void gen_code(void) {
 void gen_stmt(Node* node) {
     switch (node->kind) {
         case ND_BLOCK:
-
             for (Node* cur = node->head; cur; cur = cur->next) {
                 gen_stmt(cur);
                 printf("    pop rax\n");
