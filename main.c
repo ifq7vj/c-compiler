@@ -632,7 +632,7 @@ void gen_stmt(Node* node) {
             printf("    push 0\n");
             free(node);
             break;
-        
+
         case ND_WHILE:
             printf("\n.L%d:\n", node->label);
             gen_stmt(node->op1);
@@ -689,7 +689,7 @@ void gen_stmt(Node* node) {
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
             break;
-        
+
         case ND_NUM:
             printf("    push %ld\n", node->val);
             free(node);
@@ -710,17 +710,17 @@ void gen_stmt(Node* node) {
             for (Node* cur = node->head; cur; cur = cur->next) {
                 gen_stmt(cur);
             }
-            
+
             for (int i = 0; i < node->val && i < 6; i++) {
                 printf("    pop %s\n", reg_arg[i]);
             }
-            
+
             printf("    call %.*s\n", node->len, node->name);
-            
+
             for (int i = 6; i < node->val; i++) {
                 printf("    pop rdi\n");
             }
-            
+
             printf("    mov rsp, [rsp]\n");
             printf("    push rax\n");
             break;
@@ -751,7 +751,7 @@ void gen_expr(Node* node) {
         case ND_MUL:
             printf("    imul rax, rdi\n");
             break;
-        
+
         case ND_DIV:
             printf("    cqo\n");
             printf("    idiv rdi\n");
