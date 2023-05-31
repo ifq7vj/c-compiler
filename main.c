@@ -1,8 +1,8 @@
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
-#include <ctype.h>
 
 typedef enum TokenKind TokenKind;
 typedef struct Token Token;
@@ -78,8 +78,7 @@ int jump;
 Node* node_res(NodeKind, Node*, Node*);
 Node* node_num(long);
 Node* node_id(void);
-Node* node_fnd(Node*);
-Node* node_fnc(Node*);
+Node* node_func(NodeKind, Node*);
 Node* node_var(Node*);
 
 typedef struct Var Var;
@@ -286,32 +285,9 @@ Node* node_id(void) {
     return node;
 }
 
-Node* node_fnd(Node* node) {
+Node* node_func(NodeKind kind, Node* node) {
     Node* func = calloc(1, sizeof(Node));
-    func->kind = ND_FND;
-    func->name = node->name;
-    func->len = node->len;
-    func->val = 0;
-    Node* arg;
-
-    while (!consume(")")) {
-        arg = asg();
-        arg->next = func->head;
-        func->head = arg;
-        func->val++;
-        if (consume(",")) continue;
-        if (consume(")")) break;
-        fprintf(stderr, "expected ',' or ')'\n");
-        exit(1);
-    }
-
-    func->op1 = stmt();
-    return func;
-}
-
-Node* node_fnc(Node* node) {
-    Node* func = calloc(1, sizeof(Node));
-    func->kind = ND_FNC;
+    func->kind = kind;
     func->name = node->name;
     func->len = node->len;
     func->val = 0;
@@ -374,7 +350,8 @@ Node* func(void) {
     local = calloc(1, sizeof(Var));
     Node* node = node_id();
     expect("(");
-    node = node_fnd(node);
+    node = node_func(ND_FND, node);
+    node->op1 = stmt();
     node->ofs = local->ofs;
     free(local);
     return node;
@@ -577,7 +554,7 @@ Node* prim(void) {
         Node* node = node_id();
 
         if (consume("(")) {
-            return node_fnc(node);
+            return node_func(ND_FNC, node);
         }
 
         return node_var(node);
@@ -601,6 +578,7 @@ void gen_func(Node* node) {
     printf("\n%.*s:\n", node->len, node->name);
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");
+    printf("    sub rsp, %d\n", node->ofs);
 
     for (int i = 0; i < node->val; i++) {
         if (i < 6) {
@@ -617,7 +595,6 @@ void gen_func(Node* node) {
         }
     }
 
-    printf("    sub rsp, %d\n", node->ofs);
     gen_stmt(node->op1);
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
