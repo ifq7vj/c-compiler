@@ -123,7 +123,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    local = calloc(1, sizeof(Var));
     jump = 0;
     token = tokenize(argv[1]);
     prog();
@@ -372,9 +371,13 @@ Node* func(void) {
         exit(1);
     }
 
+    local = calloc(1, sizeof(Var));
     Node* node = node_id();
     expect("(");
-    return node_fnd(node);
+    node = node_fnd(node);
+    node->ofs = local->ofs;
+    free(local);
+    return node;
 }
 
 Node* stmt(void) {
@@ -601,15 +604,20 @@ void gen_func(Node* node) {
 
     for (int i = 0; i < node->val; i++) {
         if (i < 6) {
-            printf("    push %s\n", reg_arg[i]);
+            printf("    mov rax, rbp\n");
+            printf("    sub rax, %d\n", (i + 1) * 8);
+            printf("    mov [rax], %s\n", reg_arg[i]);
         } else {
             printf("    mov rax, rbp\n");
-            printf("    add rax, %d\n", (i - 4) * 8);
-            printf("    push [rax]\n");
+            printf("    sub rax, %d\n", (i + 1) * 8);
+            printf("    mov rdi, rbp\n");
+            printf("    add rdi, %d\n", (i - 4) * 8);
+            printf("    mov rdi, [rdi]\n");
+            printf("    mov [rax], rdi\n");
         }
     }
 
-    printf("    sub rsp, %d\n", local->ofs);
+    printf("    sub rsp, %d\n", node->ofs);
     gen_stmt(node->op1);
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
