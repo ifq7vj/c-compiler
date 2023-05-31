@@ -598,6 +598,17 @@ void gen_func(Node* node) {
     printf("\n%.*s:\n", node->len, node->name);
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");
+
+    for (int i = 0; i < node->val; i++) {
+        if (i < 6) {
+            printf("    push %s\n", reg_arg[i]);
+        } else {
+            printf("    mov rax, rbp\n");
+            printf("    add rax, %d\n", (i - 4) * 8);
+            printf("    push [rax]\n");
+        }
+    }
+
     printf("    sub rsp, %d\n", local->ofs);
     gen_stmt(node->op1);
     printf("    mov rsp, rbp\n");
