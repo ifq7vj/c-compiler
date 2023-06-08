@@ -291,25 +291,24 @@ Node* node_id(void) {
 }
 
 Node* node_func(NodeKind kind, Node* nd) {
-    Node* func = calloc(1, sizeof(Node));
-    func->kind = kind;
-    func->name = nd->name;
-    func->len = nd->len;
-    func->val = 0;
+    nd->kind = kind;
+    nd->name = nd->name;
+    nd->len = nd->len;
+    nd->val = 0;
     Node* arg;
 
     while (!consume(")")) {
         arg = expr();
-        arg->next = func->head;
-        func->head = arg;
-        func->val++;
+        arg->next = nd->head;
+        nd->head = arg;
+        nd->val++;
         if (consume(",")) continue;
         if (consume(")")) break;
         fprintf(stderr, "expected ',' or ')'\n");
         exit(1);
     }
 
-    return func;
+    return nd;
 }
 
 Node* node_var(Node* nd) {
@@ -358,7 +357,13 @@ Node* func(void) {
     nd = node_func(ND_FND, nd);
     nd->op1 = stmt();
     nd->ofs = local->ofs;
-    free(local);
+
+    do {
+        Var* del = local;
+        local = local->next;
+        free(del);
+    } while (local);
+
     return nd;
 }
 
@@ -586,13 +591,12 @@ void gen_func(Node* nd) {
     printf("    sub rsp, %d\n", nd->ofs);
 
     for (int i = 0; i < nd->val; i++) {
+        printf("    mov rax, rbp\n");
+        printf("    sub rax, %d\n", (i + 1) * 8);
+
         if (i < 6) {
-            printf("    mov rax, rbp\n");
-            printf("    sub rax, %d\n", (i + 1) * 8);
             printf("    mov [rax], %s\n", reg_arg[i]);
         } else {
-            printf("    mov rax, rbp\n");
-            printf("    sub rax, %d\n", (i + 1) * 8);
             printf("    mov rdi, rbp\n");
             printf("    add rdi, %d\n", (i - 4) * 8);
             printf("    mov rdi, [rdi]\n");
@@ -600,10 +604,17 @@ void gen_func(Node* nd) {
         }
     }
 
+    for (Node* cur = nd->head; cur; ) {
+        Node* del = cur;
+        cur = cur->next;
+        gen_stmt(del);
+    }
+
     gen_stmt(nd->op1);
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
     printf("    ret\n");
+    free(nd);
     return;
 }
 
@@ -614,6 +625,7 @@ void gen_stmt(Node* nd) {
                 gen_stmt(cur);
             }
 
+            free(nd);
             break;
 
         case ND_IFEL:
@@ -710,6 +722,7 @@ void gen_expr(Node* nd) {
 
             printf("    mov rsp, [rsp]\n");
             printf("    push rax\n");
+            free(nd);
             break;
 
         case ND_VAR:
