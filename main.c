@@ -39,6 +39,8 @@ typedef enum NodeKind NodeKind;
 typedef struct Node Node;
 
 enum NodeKind {
+    ND_ADR,
+    ND_DER,
     ND_ASG,
     ND_EQ,
     ND_NE,
@@ -159,7 +161,7 @@ void tokenize(void) {
             continue;
         }
 
-        if (strchr("+-*/()<>;={},", *code)) {
+        if (strchr("&()*+,-/;<=>{}", *code)) {
             tk = new_token(TK_RES, code++, 1, tk);
             continue;
         }
@@ -542,6 +544,14 @@ Node* mul(void) {
 }
 
 Node* unary(void) {
+    if (consume("&")) {
+        return node_res(ND_ADR, unary(), NULL);
+    }
+
+    if (consume("*")) {
+        return node_res(ND_DER, unary(), NULL);
+    }
+
     if (consume("+")) {
         return node_res(ND_ADD, node_num(0), unary());
     }
@@ -689,6 +699,30 @@ void gen_stmt(Node* nd) {
 
 void gen_expr(Node* nd) {
     switch (nd->kind) {
+        case ND_ADR:
+            gen_var(nd->op1);
+            free(nd);
+            break;
+
+        case ND_DER:
+            gen_var(nd->op1);
+            printf("    pop rax\n");
+            printf("    mov rax, [rax]\n");
+            printf("    mov rax, [rax]\n");
+            printf("    push rax\n");
+            free(nd);
+            break;
+
+        case ND_ASG:
+            gen_var(nd->op1);
+            gen_expr(nd->op2);
+            printf("    pop rdi\n");
+            printf("    pop rax\n");
+            printf("    mov [rax], rdi\n");
+            printf("    push rdi\n");
+            free(nd);
+            break;
+
         case ND_NUM:
             printf("    push %ld\n", nd->val);
             free(nd);
@@ -730,16 +764,6 @@ void gen_expr(Node* nd) {
             printf("    pop rax\n");
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
-            break;
-
-        case ND_ASG:
-            gen_var(nd->op1);
-            gen_expr(nd->op2);
-            printf("    pop rdi\n");
-            printf("    pop rax\n");
-            printf("    mov [rax], rdi\n");
-            printf("    push rdi\n");
-            free(nd);
             break;
 
         default:
