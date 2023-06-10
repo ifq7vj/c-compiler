@@ -166,6 +166,12 @@ void tokenize(void) {
             continue;
         }
 
+        if (!strncmp(code, "int", 3) && !(isalnum(code[3]) || code[3] == '_')) {
+            tk = new_token(TK_RES, code, 3, tk);
+            code += 3;
+            continue;
+        }
+
         if (!strncmp(code, "if", 2) && !(isalnum(code[2]) || code[2] == '_')) {
             tk = new_token(TK_RES, code, 2, tk);
             code += 2;
@@ -282,6 +288,11 @@ Node* node_num(long val) {
 }
 
 Node* node_id(void) {
+    if (token->kind != TK_ID) {
+        fprintf(stderr, "\'%.*s\' is not identifier\n", token->len, token->str);
+        exit(1);
+    }
+
     Node* nd = calloc(1, sizeof(Node));
     nd->kind = ND_ID;
     nd->name = token->str;
@@ -300,7 +311,13 @@ Node* node_func(NodeKind kind, Node* nd) {
     Node* arg;
 
     while (!consume(")")) {
-        arg = expr();
+        if (kind == ND_FND) {
+            expect("int");
+            arg = node_var(node_id());
+        } else {
+            arg = expr();
+        }
+
         arg->next = nd->head;
         nd->head = arg;
         nd->val++;
@@ -348,12 +365,8 @@ void prog(void) {
 }
 
 Node* func(void) {
-    if (token->kind != TK_ID) {
-        fprintf(stderr, "expected function name\n");
-        exit(1);
-    }
-
     local = calloc(1, sizeof(Var));
+    expect("int");
     Node* nd = node_id();
     expect("(");
     nd = node_func(ND_FND, nd);
@@ -385,6 +398,12 @@ Node* stmt(void) {
         nd->head = nd->head->next;
         free(del);
         return nd;
+    }
+
+    if (consume("int")) {
+        Node* nd = node_id();
+        expect(";");
+        return node_var(nd);
     }
 
     if (consume("if")) {
