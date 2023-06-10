@@ -10,10 +10,7 @@ typedef enum TokenKind TokenKind;
 typedef struct Token Token;
 
 enum TokenKind {
-    TK_RES,
-    TK_ID,
-    TK_NUM,
-    TK_EOF,
+    TK_RES, TK_ID, TK_NUM, TK_EOF,
 };
 
 struct Token {
@@ -23,6 +20,9 @@ struct Token {
     int len;
     long val;
 };
+
+const char* tk_res[] = {"return", "while", "else", "for", "int", "if"};
+const char* tk_op[] = {"!=", "<=", "==", ">=", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
 
 Token* token;
 
@@ -37,29 +37,11 @@ bool is_eof(void);
 
 typedef enum NodeKind NodeKind;
 typedef struct Node Node;
+typedef struct Var Var;
 
 enum NodeKind {
-    ND_ADR,
-    ND_DER,
-    ND_ASG,
-    ND_EQ,
-    ND_NE,
-    ND_LT,
-    ND_LE,
-    ND_ADD,
-    ND_SUB,
-    ND_MUL,
-    ND_DIV,
-    ND_BLOCK,
-    ND_IFEL,
-    ND_WHILE,
-    ND_FOR,
-    ND_RET,
-    ND_NUM,
-    ND_ID,
-    ND_FND,
-    ND_FNC,
-    ND_VAR,
+    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
+    ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB,ND_MUL, ND_DIV, ND_ADR, ND_DER,
 };
 
 struct Node {
@@ -77,16 +59,6 @@ struct Node {
     int label;
 };
 
-int jump;
-
-Node* node_res(NodeKind, Node*, Node*);
-Node* node_num(long);
-Node* node_id(void);
-Node* node_func(NodeKind, Node*);
-Node* node_var(Node*);
-
-typedef struct Var Var;
-
 struct Var {
     Var* next;
     char* name;
@@ -95,10 +67,15 @@ struct Var {
 };
 
 Var* local;
-
-Var* new_var(Node*);
-
 Node* node[256];
+int jump;
+
+Node* node_res(NodeKind, Node*, Node*);
+Node* node_num(long);
+Node* node_id(void);
+Node* node_func(NodeKind, Node*);
+Node* node_var(Node*);
+Var* new_var(Node*);
 
 void prog(void);
 Node* func(void);
@@ -112,7 +89,7 @@ Node* mul(void);
 Node* unary(void);
 Node* prim(void);
 
-const char* reg_arg[6] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+const char* reg_arg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 void gen_code(void);
 void gen_func(Node*);
@@ -155,52 +132,29 @@ void tokenize(void) {
             continue;
         }
 
-        if (!strncmp(code, "==", 2) || !strncmp(code, "!=", 2) || !strncmp(code, "<=", 2) || !strncmp(code, ">=", 2)) {
-            tk = new_token(TK_RES, code, 2, tk);
-            code += 2;
-            continue;
+        bool flag = false;
+
+        for (int i = 0, n = sizeof(tk_res) / sizeof(char*); i < n; i++) {
+            if (!strncmp(code, tk_res[i], strlen(tk_res[i])) && !(isalnum(code[strlen(tk_res[i])]) || code[strlen(tk_res[i])] == '_')) {
+                tk = new_token(TK_RES, code, strlen(tk_res[i]), tk);
+                code += strlen(tk_res[i]);
+                flag = true;
+                break;
+            }
         }
 
-        if (strchr("&()*+,-/;<=>{}", *code)) {
-            tk = new_token(TK_RES, code++, 1, tk);
-            continue;
+        if (flag) continue;
+
+        for (int i = 0, n = sizeof(tk_op) / sizeof(char*); i < n; i++) {
+            if (!strncmp(code, tk_op[i], strlen(tk_op[i]))) {
+                tk = new_token(TK_RES, code, strlen(tk_op[i]), tk);
+                code += strlen(tk_op[i]);
+                flag = true;
+                break;
+            }
         }
 
-        if (!strncmp(code, "int", 3) && !(isalnum(code[3]) || code[3] == '_')) {
-            tk = new_token(TK_RES, code, 3, tk);
-            code += 3;
-            continue;
-        }
-
-        if (!strncmp(code, "if", 2) && !(isalnum(code[2]) || code[2] == '_')) {
-            tk = new_token(TK_RES, code, 2, tk);
-            code += 2;
-            continue;
-        }
-
-        if (!strncmp(code, "else", 4) && !(isalnum(code[4]) || code[4] == '_')) {
-            tk = new_token(TK_RES, code, 4, tk);
-            code += 4;
-            continue;
-        }
-
-        if (!strncmp(code, "while", 5) && !(isalnum(code[5]) || code[5] == '_')) {
-            tk = new_token(TK_RES, code, 5, tk);
-            code += 5;
-            continue;
-        }
-
-        if (!strncmp(code, "for", 3) && !(isalnum(code[3]) || code[3] == '_')) {
-            tk = new_token(TK_RES, code, 3, tk);
-            code += 3;
-            continue;
-        }
-
-        if (!strncmp(code, "return", 6) && !(isalnum(code[6]) || code[6] == '_')) {
-            tk = new_token(TK_RES, code, 6, tk);
-            code += 6;
-            continue;
-        }
+        if (flag) continue;
 
         if (isalpha(*code) || *code == '_') {
             tk = new_token(TK_ID, code, 0, tk);
@@ -385,7 +339,7 @@ Node* func(void) {
 Node* stmt(void) {
     if (consume("{")) {
         Node* nd = calloc(1, sizeof(Node));
-        nd->kind = ND_BLOCK;
+        nd->kind = ND_BLK;
         Node* item = calloc(1, sizeof(Node));
         nd->head = item;
 
@@ -418,8 +372,6 @@ Node* stmt(void) {
 
         if (consume("else")) {
             nd->op3 = stmt();
-        } else {
-            nd->op3 = node_num(0);
         }
 
         return nd;
@@ -649,7 +601,7 @@ void gen_func(Node* nd) {
 
 void gen_stmt(Node* nd) {
     switch (nd->kind) {
-        case ND_BLOCK:
+        case ND_BLK:
             for (Node* cur = nd->head; cur; cur = cur->next) {
                 gen_stmt(cur);
             }
@@ -665,7 +617,11 @@ void gen_stmt(Node* nd) {
             gen_stmt(nd->op2);
             printf("    jmp .L%d\n", nd->label + 1);
             printf("\n.L%d:\n", nd->label);
-            gen_stmt(nd->op3);
+
+            if (nd->op3) {
+                gen_stmt(nd->op3);
+            }
+
             printf("\n.L%d:\n", nd->label + 1);
             free(nd);
             break;
