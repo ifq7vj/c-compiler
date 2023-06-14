@@ -6,12 +6,11 @@
 
 char *code;
 
-typedef enum TokenKind TokenKind;
 typedef struct Token Token;
 
-enum TokenKind {
+typedef enum {
     TK_RES, TK_ID, TK_NUM, TK_EOF,
-};
+} TokenKind;
 
 struct Token {
     TokenKind kind;
@@ -35,14 +34,13 @@ void expect(char *);
 long expect_num(void);
 bool is_eof(void);
 
-typedef enum NodeKind NodeKind;
 typedef struct Node Node;
 typedef struct Var Var;
 
-enum NodeKind {
+typedef enum {
     ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
     ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB,ND_MUL, ND_DIV, ND_ADR, ND_DER,
-};
+} NodeKind;
 
 struct Node {
     NodeKind kind;
