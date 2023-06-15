@@ -68,8 +68,10 @@ Node *node_res(NodeKind, Node *, Node *);
 Node *node_num(long);
 Node *node_id(void);
 Node *node_func(NodeKind, Node *);
-Node *node_var(Node *);
+Node *node_vardef(Node *);
+Node *node_varref(Node *);
 Var *new_var(Node *);
+Var *find_var(Node *);
 
 void prog(void);
 Node *func(void);
@@ -261,7 +263,7 @@ Node *node_func(NodeKind kind, Node *nd) {
     while (!consume(")")) {
         if (kind == ND_FND) {
             expect("int");
-            arg = node_var(node_id());
+            arg = node_vardef(node_id());
         } else {
             arg = expr();
         }
@@ -278,17 +280,25 @@ Node *node_func(NodeKind kind, Node *nd) {
     return nd;
 }
 
-Node *node_var(Node *nd) {
+Node *node_vardef(Node *nd) {
     Var *var = new_var(nd);
     nd->kind = ND_VAR;
     nd->ofs = var->ofs;
     return nd;
 }
 
-Var *new_var(Node *nd) {
+Node *node_varref(Node *nd) {
+    Var *var = find_var(nd);
+    nd->kind = ND_VAR;
+    nd->ofs = var->ofs;
+    return nd;
+}
+
+Var *new_var(Node* nd) {
     for (Var *var = local; var; var = var->next) {
         if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
-            return var;
+            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
+            exit(1);
         }
     }
 
@@ -299,6 +309,17 @@ Var *new_var(Node *nd) {
     var->next = local;
     local = var;
     return var;
+}
+
+Var *find_var(Node *nd) {
+    for (Var *var = local; var; var = var->next) {
+        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
+            return var;
+        }
+    }
+
+    fprintf(stderr, "undefined variable \'%.*s\'\n", nd->len, nd->name);
+    exit(1);
 }
 
 void prog(void) {
@@ -351,7 +372,7 @@ Node *stmt(void) {
     if (consume("int")) {
         Node *nd = node_id();
         expect(";");
-        return node_var(nd);
+        return node_vardef(nd);
     }
 
     if (consume("if")) {
@@ -542,7 +563,7 @@ Node *prim(void) {
             return node_func(ND_FNC, nd);
         }
 
-        return node_var(nd);
+        return node_varref(nd);
     }
 
     return node_num(expect_num());
