@@ -4,13 +4,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *code;
-
 typedef struct Token Token;
+typedef struct Node Node;
+typedef struct Var Var;
 
 typedef enum {
     TK_RES, TK_ID, TK_NUM, TK_EOF,
 } TokenKind;
+
+typedef enum {
+    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
+    ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
+} NodeKind;
 
 struct Token {
     TokenKind kind;
@@ -19,28 +24,6 @@ struct Token {
     long val;
     Token *next;
 };
-
-const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
-const char *tk_op[] = {"!=", "<=", "==", ">=", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
-
-Token *token;
-
-Token *new_token(TokenKind, char *, int, Token *);
-
-void tokenize(void);
-
-bool consume(char *);
-void expect(char *);
-long expect_num(void);
-bool is_eof(void);
-
-typedef struct Node Node;
-typedef struct Var Var;
-
-typedef enum {
-    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
-    ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
-} NodeKind;
 
 struct Node {
     NodeKind kind;
@@ -60,18 +43,14 @@ struct Var {
     int ofs;
 };
 
-Var *local;
-Node *node[256];
-int jump;
+void tokenize(void);
 
-Node *node_res(NodeKind, Node *, Node *);
-Node *node_num(long);
-Node *node_id(void);
-Node *node_func(NodeKind, Node *);
-Node *node_vardef(Node *);
-Node *node_varref(Node *);
-Var *new_var(Node *);
-Var *find_var(Node *);
+Token *new_token(TokenKind, char *, int, Token *);
+
+bool consume(char *);
+void expect(char *);
+long expect_num(void);
+bool is_eof(void);
 
 void prog(void);
 Node *func(void);
@@ -85,7 +64,14 @@ Node *mul(void);
 Node *unary(void);
 Node *prim(void);
 
-const char *reg_arg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+Node *node_res(NodeKind, Node *, Node *);
+Node *node_num(long);
+Node *node_id(void);
+Node *node_func(NodeKind, Node *);
+Node *node_vardef(Node *);
+Node *node_varref(Node *);
+Var *new_var(Node *);
+Var *find_var(Node *);
 
 void gen_code(void);
 void gen_func(Node *);
@@ -93,6 +79,16 @@ void gen_stmt(Node *);
 void gen_expr(Node *);
 void gen_bin(Node *);
 void gen_var(Node *);
+
+const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
+const char *tk_op[] = {"!=", "<=", "==", ">=", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
+const char *reg_arg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
+char *code;
+Token *token;
+Node *node[256];
+Var *local;
+int jump;
 
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -106,15 +102,6 @@ int main(int argc, char **argv) {
     prog();
     gen_code();
     return 0;
-}
-
-Token *new_token(TokenKind kind, char *str, int len, Token *tk) {
-    Token *new = calloc(1, sizeof(Token));
-    new->kind = kind;
-    new->str = str;
-    new->len = len;
-    tk->next = new;
-    return new;
 }
 
 void tokenize(void) {
@@ -177,6 +164,15 @@ void tokenize(void) {
     return;
 }
 
+Token *new_token(TokenKind kind, char *str, int len, Token *tk) {
+    Token *new = calloc(1, sizeof(Token));
+    new->kind = kind;
+    new->str = str;
+    new->len = len;
+    tk->next = new;
+    return new;
+}
+
 bool consume(char *op) {
     if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op))) {
         return false;
@@ -220,106 +216,6 @@ bool is_eof(void) {
 
     free(token);
     return true;
-}
-
-Node *node_res(NodeKind kind, Node *op1, Node *op2) {
-    Node *nd = calloc(1, sizeof(Node));
-    nd->kind = kind;
-    nd->op1 = op1;
-    nd->op2 = op2;
-    return nd;
-}
-
-Node *node_num(long val) {
-    Node *nd = calloc(1, sizeof(Node));
-    nd->kind = ND_NUM;
-    nd->val = val;
-    return nd;
-}
-
-Node *node_id(void) {
-    if (token->kind != TK_ID) {
-        fprintf(stderr, "\'%.*s\' is not identifier\n", token->len, token->str);
-        exit(1);
-    }
-
-    Node *nd = calloc(1, sizeof(Node));
-    nd->kind = ND_ID;
-    nd->name = token->str;
-    nd->len = token->len;
-    Token *del = token;
-    token = token->next;
-    free(del);
-    return nd;
-}
-
-Node *node_func(NodeKind kind, Node *nd) {
-    nd->kind = kind;
-    nd->name = nd->name;
-    nd->len = nd->len;
-    nd->val = 0;
-    Node *arg;
-
-    while (!consume(")")) {
-        if (kind == ND_FND) {
-            expect("int");
-            arg = node_vardef(node_id());
-        } else {
-            arg = expr();
-        }
-
-        arg->next = nd->head;
-        nd->head = arg;
-        nd->val++;
-        if (consume(",")) continue;
-        if (consume(")")) break;
-        fprintf(stderr, "expected ',' or ')'\n");
-        exit(1);
-    }
-
-    return nd;
-}
-
-Node *node_vardef(Node *nd) {
-    Var *var = new_var(nd);
-    nd->kind = ND_VAR;
-    nd->ofs = var->ofs;
-    return nd;
-}
-
-Node *node_varref(Node *nd) {
-    Var *var = find_var(nd);
-    nd->kind = ND_VAR;
-    nd->ofs = var->ofs;
-    return nd;
-}
-
-Var *new_var(Node* nd) {
-    for (Var *var = local; var; var = var->next) {
-        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
-            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
-            exit(1);
-        }
-    }
-
-    Var *var = calloc(1, sizeof(Var));
-    var->name = nd->name;
-    var->len = nd->len;
-    var->ofs = local->ofs + 8;
-    var->next = local;
-    local = var;
-    return var;
-}
-
-Var *find_var(Node *nd) {
-    for (Var *var = local; var; var = var->next) {
-        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
-            return var;
-        }
-    }
-
-    fprintf(stderr, "undefined variable \'%.*s\'\n", nd->len, nd->name);
-    exit(1);
 }
 
 void prog(void) {
@@ -567,6 +463,106 @@ Node *prim(void) {
     }
 
     return node_num(expect_num());
+}
+
+Node *node_res(NodeKind kind, Node *op1, Node *op2) {
+    Node *nd = calloc(1, sizeof(Node));
+    nd->kind = kind;
+    nd->op1 = op1;
+    nd->op2 = op2;
+    return nd;
+}
+
+Node *node_num(long val) {
+    Node *nd = calloc(1, sizeof(Node));
+    nd->kind = ND_NUM;
+    nd->val = val;
+    return nd;
+}
+
+Node *node_id(void) {
+    if (token->kind != TK_ID) {
+        fprintf(stderr, "\'%.*s\' is not identifier\n", token->len, token->str);
+        exit(1);
+    }
+
+    Node *nd = calloc(1, sizeof(Node));
+    nd->kind = ND_ID;
+    nd->name = token->str;
+    nd->len = token->len;
+    Token *del = token;
+    token = token->next;
+    free(del);
+    return nd;
+}
+
+Node *node_func(NodeKind kind, Node *nd) {
+    nd->kind = kind;
+    nd->name = nd->name;
+    nd->len = nd->len;
+    nd->val = 0;
+    Node *arg;
+
+    while (!consume(")")) {
+        if (kind == ND_FND) {
+            expect("int");
+            arg = node_vardef(node_id());
+        } else {
+            arg = expr();
+        }
+
+        arg->next = nd->head;
+        nd->head = arg;
+        nd->val++;
+        if (consume(",")) continue;
+        if (consume(")")) break;
+        fprintf(stderr, "expected ',' or ')'\n");
+        exit(1);
+    }
+
+    return nd;
+}
+
+Node *node_vardef(Node *nd) {
+    Var *var = new_var(nd);
+    nd->kind = ND_VAR;
+    nd->ofs = var->ofs;
+    return nd;
+}
+
+Node *node_varref(Node *nd) {
+    Var *var = find_var(nd);
+    nd->kind = ND_VAR;
+    nd->ofs = var->ofs;
+    return nd;
+}
+
+Var *new_var(Node* nd) {
+    for (Var *var = local; var; var = var->next) {
+        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
+            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
+            exit(1);
+        }
+    }
+
+    Var *var = calloc(1, sizeof(Var));
+    var->name = nd->name;
+    var->len = nd->len;
+    var->ofs = local->ofs + 8;
+    var->next = local;
+    local = var;
+    return var;
+}
+
+Var *find_var(Node *nd) {
+    for (Var *var = local; var; var = var->next) {
+        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
+            return var;
+        }
+    }
+
+    fprintf(stderr, "undefined variable \'%.*s\'\n", nd->len, nd->name);
+    exit(1);
 }
 
 void gen_code(void) {
