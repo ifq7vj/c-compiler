@@ -14,10 +14,10 @@ typedef enum {
 
 struct Token {
     TokenKind kind;
-    Token *next;
     char *str;
     int len;
     long val;
+    Token *next;
 };
 
 const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
@@ -39,18 +39,18 @@ typedef struct Var Var;
 
 typedef enum {
     ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
-    ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB,ND_MUL, ND_DIV, ND_ADR, ND_DER,
+    ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
 } NodeKind;
 
 struct Node {
     NodeKind kind;
-    Node *head, *next;
-    Node *op1, *op2, *op3, *op4;
     char *name;
     int len;
     long val;
     int ofs;
     int label;
+    Node *head, *next;
+    Node *op1, *op2, *op3, *op4;
 };
 
 struct Var {
@@ -152,9 +152,9 @@ void tokenize(void) {
 
         if (isalpha(*code) || *code == '_') {
             tk = new_token(TK_ID, code, 0, tk);
-            char *q = code;
+            char *ptr = code;
             while (isalnum(*code) || *code == '_') code++;
-            tk->len = code - q;
+            tk->len = code - ptr;
             continue;
         }
 
