@@ -7,6 +7,7 @@
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Var Var;
+typedef struct Type Type;
 
 typedef enum {
     TK_RES, TK_ID, TK_NUM, TK_EOF,
@@ -16,6 +17,10 @@ typedef enum {
     ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
     ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
 } NodeKind;
+
+typedef enum {
+    TY_INT, TY_PTR,
+} TypeKind;
 
 struct Token {
     TokenKind kind;
@@ -37,10 +42,16 @@ struct Node {
 };
 
 struct Var {
-    Var *next;
+    Type *type;
     char *name;
     int len;
     int ofs;
+    Var *next;
+};
+
+struct Type {
+    TypeKind kind;
+    Type *ptr;
 };
 
 void tokenize(void);
@@ -81,7 +92,7 @@ void gen_bin(Node *);
 void gen_var(Node *);
 
 const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
-const char *tk_op[] = {"!=", "<=", "==", ">=", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
+const char *tk_op[] = {"!=", "<=", "==", ">=", "&", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
 const char *reg_arg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 char *code;
@@ -149,9 +160,9 @@ void tokenize(void) {
 
         if (isdigit(*code)) {
             tk = new_token(TK_NUM, code, 0, tk);
-            char *q = code;
+            char *ptr = code;
             tk->val = strtol(code, &code, 10);
-            tk->len = code - q;
+            tk->len = code - ptr;
             continue;
         }
 
@@ -248,6 +259,22 @@ Node *func(void) {
 }
 
 Node *stmt(void) {
+    if (consume("int")) {
+        Type *ty = calloc(1, sizeof(Type));
+        ty->kind = TY_INT;
+
+        while (consume("*")) {
+            Type *new = calloc(1, sizeof(Type));
+            new->kind = TY_PTR;
+            new->ptr = ty;
+            ty = new;
+        }
+
+        Node *nd = node_id();
+        expect(";");
+        return node_vardef(nd);
+    }
+
     if (consume("{")) {
         Node *nd = calloc(1, sizeof(Node));
         nd->kind = ND_BLK;
@@ -263,12 +290,6 @@ Node *stmt(void) {
         nd->head = nd->head->next;
         free(del);
         return nd;
-    }
-
-    if (consume("int")) {
-        Node *nd = node_id();
-        expect(";");
-        return node_vardef(nd);
     }
 
     if (consume("if")) {
