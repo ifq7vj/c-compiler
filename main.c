@@ -42,7 +42,6 @@ struct Node {
 };
 
 struct Var {
-    Type *type;
     char *name;
     int len;
     int ofs;
@@ -128,31 +127,41 @@ void tokenize(void) {
         bool flag = false;
 
         for (int i = 0, n = sizeof(tk_res) / sizeof(char *); i < n; i++) {
-            if (!strncmp(code, tk_res[i], strlen(tk_res[i])) && !(isalnum(code[strlen(tk_res[i])]) || code[strlen(tk_res[i])] == '_')) {
-                tk = new_token(TK_RES, code, strlen(tk_res[i]), tk);
-                code += strlen(tk_res[i]);
-                flag = true;
-                break;
+            if (strncmp(code, tk_res[i], strlen(tk_res[i])) || isalnum(code[strlen(tk_res[i])]) || code[strlen(tk_res[i])] == '_') {
+                continue;
             }
+
+            tk = new_token(TK_RES, code, strlen(tk_res[i]), tk);
+            code += strlen(tk_res[i]);
+            flag = true;
         }
 
-        if (flag) continue;
+        if (flag) {
+            continue;
+        }
 
         for (int i = 0, n = sizeof(tk_op) / sizeof(char *); i < n; i++) {
-            if (!strncmp(code, tk_op[i], strlen(tk_op[i]))) {
-                tk = new_token(TK_RES, code, strlen(tk_op[i]), tk);
-                code += strlen(tk_op[i]);
-                flag = true;
-                break;
+            if (strncmp(code, tk_op[i], strlen(tk_op[i]))) {
+                continue;
             }
+
+            tk = new_token(TK_RES, code, strlen(tk_op[i]), tk);
+            code += strlen(tk_op[i]);
+            flag = true;
         }
 
-        if (flag) continue;
+        if (flag) {
+            continue;
+        }
 
         if (isalpha(*code) || *code == '_') {
             tk = new_token(TK_ID, code, 0, tk);
             char *ptr = code;
-            while (isalnum(*code) || *code == '_') code++;
+
+            while (isalnum(*code) || *code == '_') {
+                code++;
+            }
+
             tk->len = code - ptr;
             continue;
         }
@@ -554,8 +563,15 @@ Node *node_func(NodeKind kind, Node *nd) {
         arg->next = nd->head;
         nd->head = arg;
         nd->val++;
-        if (consume(",")) continue;
-        if (consume(")")) break;
+
+        if (consume(",")) {
+            continue;
+        }
+
+        if (consume(")")) {
+            break;
+        }
+
         fprintf(stderr, "expected ',' or ')'\n");
         exit(1);
     }
