@@ -89,7 +89,6 @@ void gen_func(Node *);
 void gen_stmt(Node *);
 void gen_expr(Node *);
 void gen_bin(Node *);
-void gen_var(Node *);
 
 const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
 const char *tk_op[] = {"!=", "<=", "==", ">=", "&", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
@@ -243,6 +242,16 @@ void prog(void) {
 Node *func(void) {
     local = calloc(1, sizeof(Var));
     expect("int");
+    Type *ty = calloc(1, sizeof(Type));
+    ty->kind = TY_INT;
+
+    while (consume("*")) {
+        Type *new = calloc(1, sizeof(Type));
+        new->kind = TY_PTR;
+        new->ptr = ty;
+        ty = new;
+    }
+
     Node *nd = node_id();
     expect("(");
     nd = node_func(ND_FND, nd);
@@ -527,6 +536,16 @@ Node *node_func(NodeKind kind, Node *nd) {
     while (!consume(")")) {
         if (kind == ND_FND) {
             expect("int");
+            Type *ty = calloc(1, sizeof(Type));
+            ty->kind = TY_INT;
+
+            while (consume("*")) {
+                Type *new = calloc(1, sizeof(Type));
+                new->kind = TY_PTR;
+                new->ptr = ty;
+                ty = new;
+            }
+
             arg = node_vardef(node_id());
         } else {
             arg = expr();
@@ -707,21 +726,44 @@ void gen_stmt(Node *nd) {
 void gen_expr(Node *nd) {
     switch (nd->kind) {
         case ND_ADR:
-            gen_var(nd->op1);
+            printf("    mov rax, rbp\n");
+            printf("    sub rax, %d\n", nd->op1->ofs);
+            printf("    push rax\n");
+            free(nd->op1);
             free(nd);
             break;
 
         case ND_DER:
-            gen_var(nd->op1);
-            printf("    pop rax\n");
+            printf("    mov rax, rbp\n");
+            printf("    sub rax, %d\n", nd->op1->ofs);
             printf("    mov rax, [rax]\n");
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
+            free(nd->op1);
             free(nd);
             break;
 
         case ND_ASG:
-            gen_var(nd->op1);
+            switch (nd->op1->kind) {
+                case ND_VAR:
+                    printf("    mov rax, rbp\n");
+                    printf("    sub rax, %d\n", nd->op1->ofs);
+                    printf("    push rax\n");
+                    break;
+
+                case ND_DER:
+                    printf("    mov rax, rbp\n");
+                    printf("    sub rax, %d\n", nd->op1->op1->ofs);
+                    printf("    mov rax, [rax]\n");
+                    printf("    push rax\n");
+                    free(nd->op1->op1);
+                    break;
+
+                default:
+                    fprintf(stderr, "invalid lvalue\n");
+                    exit(1);
+            }
+
             gen_expr(nd->op2);
             printf("    pop rdi\n");
             printf("    pop rax\n");
@@ -767,8 +809,8 @@ void gen_expr(Node *nd) {
             break;
 
         case ND_VAR:
-            gen_var(nd);
-            printf("    pop rax\n");
+            printf("    mov rax, rbp\n");
+            printf("    sub rax, %d\n", nd->ofs);
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
             break;
@@ -833,19 +875,6 @@ void gen_bin(Node *nd) {
             break;
     }
 
-    printf("    push rax\n");
-    free(nd);
-    return;
-}
-
-void gen_var(Node *nd) {
-    if (nd->kind != ND_VAR) {
-        fprintf(stderr, "lvalue is not variable\n");
-        exit(1);
-    }
-
-    printf("    mov rax, rbp\n");
-    printf("    sub rax, %d\n", nd->ofs);
     printf("    push rax\n");
     free(nd);
     return;
