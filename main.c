@@ -57,6 +57,7 @@ void tokenize(void);
 
 Token *new_token(TokenKind, char *, int, Token *);
 
+bool compare(char *);
 bool consume(char *);
 void expect(char *);
 long expect_num(void);
@@ -77,11 +78,10 @@ Node *prim(void);
 Node *node_res(NodeKind, Node *, Node *);
 Node *node_num(long);
 Node *node_id(void);
-Node *node_func(NodeKind, Node *);
-Node *node_vardef(Node *);
-Node *node_varref(Node *);
+Node *node_var(void);
 Var *new_var(Node *);
 Var *find_var(Node *);
+Type *new_type(void);
 
 void gen_code(void);
 void gen_func(Node *);
@@ -193,8 +193,12 @@ Token *new_token(TokenKind kind, char *str, int len, Token *tk) {
     return new;
 }
 
+bool compare(char *op) {
+    return token->kind == TK_RES && token->len == strlen(op) && !strncmp(token->str, op, strlen(op));
+}
+
 bool consume(char *op) {
-    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op))) {
+    if (!compare(op)) {
         return false;
     }
 
@@ -205,7 +209,7 @@ bool consume(char *op) {
 }
 
 void expect(char *op) {
-    if (token->kind != TK_RES || token->len != strlen(op) || strncmp(token->str, op, strlen(op))) {
+    if (!compare(op)) {
         fprintf(stderr, "\'%.*s\' is not \'%s\'\n", token->len, token->str, op);
         exit(1);
     }
@@ -251,20 +255,35 @@ void prog(void) {
 
 Node *func(void) {
     local = calloc(1, sizeof(Var));
-    expect("int");
-    Type *ty = calloc(1, sizeof(Type));
-    ty->kind = TY_INT;
+    Type *ty = new_type();
+    Node *nd = node_id();
+    nd->kind = ND_FND;
+    Node *arg;
+    expect("(");
 
-    while (consume("*")) {
-        Type *new = calloc(1, sizeof(Type));
-        new->kind = TY_PTR;
-        new->ptr = ty;
-        ty = new;
+    while (!consume(")")) {
+        arg = node_var();
+        arg->next = nd->head;
+        nd->head = arg;
+        nd->val++;
+
+        if (consume(",")) {
+            continue;
+        }
+
+        if (consume(")")) {
+            break;
+        }
+
+        fprintf(stderr, "expected ',' or ')'\n");
+        exit(1);
     }
 
-    Node *nd = node_id();
-    expect("(");
-    nd = node_func(ND_FND, nd);
+    if (!compare("{")) {
+        fprintf(stderr, "expected '{'\n");
+        exit(1);
+    }
+
     nd->op1 = stmt();
     nd->ofs = local->ofs;
 
@@ -278,20 +297,10 @@ Node *func(void) {
 }
 
 Node *stmt(void) {
-    if (consume("int")) {
-        Type *ty = calloc(1, sizeof(Type));
-        ty->kind = TY_INT;
-
-        while (consume("*")) {
-            Type *new = calloc(1, sizeof(Type));
-            new->kind = TY_PTR;
-            new->ptr = ty;
-            ty = new;
-        }
-
-        Node *nd = node_id();
+    if (compare("int")) {
+        Node *nd = node_var();
         expect(";");
-        return node_vardef(nd);
+        return nd;
     }
 
     if (consume("{")) {
@@ -496,10 +505,34 @@ Node *prim(void) {
         Node *nd = node_id();
 
         if (consume("(")) {
-            return node_func(ND_FNC, nd);
+            nd->kind = ND_FNC;
+            Node *arg;
+
+            while (!consume(")")) {
+                arg = expr();
+                arg->next = nd->head;
+                nd->head = arg;
+                nd->val++;
+
+                if (consume(",")) {
+                    continue;
+                }
+
+                if (consume(")")) {
+                    break;
+                }
+
+                fprintf(stderr, "expected ',' or ')'\n");
+                exit(1);
+            }
+
+            return nd;
         }
 
-        return node_varref(nd);
+        Var *var = find_var(nd);
+        nd->kind = ND_VAR;
+        nd->ofs = var->ofs;
+        return nd;
     }
 
     return node_num(expect_num());
@@ -536,59 +569,10 @@ Node *node_id(void) {
     return nd;
 }
 
-Node *node_func(NodeKind kind, Node *nd) {
-    nd->kind = kind;
-    nd->name = nd->name;
-    nd->len = nd->len;
-    nd->val = 0;
-    Node *arg;
-
-    while (!consume(")")) {
-        if (kind == ND_FND) {
-            expect("int");
-            Type *ty = calloc(1, sizeof(Type));
-            ty->kind = TY_INT;
-
-            while (consume("*")) {
-                Type *new = calloc(1, sizeof(Type));
-                new->kind = TY_PTR;
-                new->ptr = ty;
-                ty = new;
-            }
-
-            arg = node_vardef(node_id());
-        } else {
-            arg = expr();
-        }
-
-        arg->next = nd->head;
-        nd->head = arg;
-        nd->val++;
-
-        if (consume(",")) {
-            continue;
-        }
-
-        if (consume(")")) {
-            break;
-        }
-
-        fprintf(stderr, "expected ',' or ')'\n");
-        exit(1);
-    }
-
-    return nd;
-}
-
-Node *node_vardef(Node *nd) {
+Node *node_var(void) {
+    Type *ty = new_type();
+    Node *nd = node_id();
     Var *var = new_var(nd);
-    nd->kind = ND_VAR;
-    nd->ofs = var->ofs;
-    return nd;
-}
-
-Node *node_varref(Node *nd) {
-    Var *var = find_var(nd);
     nd->kind = ND_VAR;
     nd->ofs = var->ofs;
     return nd;
@@ -620,6 +604,26 @@ Var *find_var(Node *nd) {
 
     fprintf(stderr, "undefined variable \'%.*s\'\n", nd->len, nd->name);
     exit(1);
+}
+
+Type *new_type(void) {
+    Type *ty = calloc(1, sizeof(Type));
+
+    if (consume("int")) {
+        ty->kind = TY_INT;
+    } else {
+        fprintf(stderr, "expected type\n");
+        exit(1);
+    }
+
+    while (consume("*")) {
+        Type *new = calloc(1, sizeof(Type));
+        new->kind = TY_PTR;
+        new->ptr = ty;
+        ty = new;
+    }
+
+    return ty;
 }
 
 void gen_code(void) {
