@@ -88,6 +88,7 @@ void gen_func(Node *);
 void gen_stmt(Node *);
 void gen_expr(Node *);
 void gen_bin(Node *);
+void gen_lval(Node *);
 
 const char *tk_res[] = {"return", "while", "else", "for", "int", "if"};
 const char *tk_op[] = {"!=", "<=", "==", ">=", "&", "(", ")", "*", "+", ",", "-", "/", ";", "<", "=", ">", "{", "}"};
@@ -750,36 +751,15 @@ void gen_expr(Node *nd) {
             break;
 
         case ND_DER:
-            printf("    mov rax, rbp\n");
-            printf("    sub rax, %d\n", nd->op1->ofs);
-            printf("    mov rax, [rax]\n");
+            gen_expr(nd->op1);
+            printf("    pop rax\n");
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
-            free(nd->op1);
             free(nd);
             break;
 
         case ND_ASG:
-            switch (nd->op1->kind) {
-                case ND_VAR:
-                    printf("    mov rax, rbp\n");
-                    printf("    sub rax, %d\n", nd->op1->ofs);
-                    printf("    push rax\n");
-                    break;
-
-                case ND_DER:
-                    printf("    mov rax, rbp\n");
-                    printf("    sub rax, %d\n", nd->op1->op1->ofs);
-                    printf("    mov rax, [rax]\n");
-                    printf("    push rax\n");
-                    free(nd->op1->op1);
-                    break;
-
-                default:
-                    fprintf(stderr, "invalid lvalue\n");
-                    exit(1);
-            }
-
+            gen_lval(nd->op1);
             gen_expr(nd->op2);
             printf("    pop rdi\n");
             printf("    pop rax\n");
@@ -829,6 +809,7 @@ void gen_expr(Node *nd) {
             printf("    sub rax, %d\n", nd->ofs);
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
+            free(nd);
             break;
 
         default:
@@ -893,5 +874,30 @@ void gen_bin(Node *nd) {
 
     printf("    push rax\n");
     free(nd);
+    return;
+}
+
+void gen_lval(Node* nd) {
+    switch (nd->kind) {
+        case ND_VAR:
+            printf("    mov rax, rbp\n");
+            printf("    sub rax, %d\n", nd->ofs);
+            printf("    push rax\n");
+            free(nd);
+            break;
+
+        case ND_DER:
+            gen_lval(nd->op1);
+            printf("    pop rax\n");
+            printf("    mov rax, [rax]\n");
+            printf("    push rax\n");
+            free(nd);
+            break;
+
+        default:
+            fprintf(stderr, "invalid lvalue\n");
+            exit(1);
+    }
+
     return;
 }
