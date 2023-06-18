@@ -464,66 +464,12 @@ Node *add(void) {
 
     while (true) {
         if (consume("+")) {
-            Node *lhs = nd, *rhs = mul();
-
-            if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
-                fprintf(stderr, "invalid operands to binary '+'\n");
-                exit(1);
-            }
-
-            if (lhs->type && lhs->type->kind == TY_PTR) {
-                if (lhs->type->ptr->kind == TY_INT) {
-                    rhs->size = 4;
-                }
-
-                if (lhs->type->ptr->kind == TY_PTR) {
-                    rhs->size = 8;
-                }
-            }
-
-            if (rhs->type && rhs->type->kind == TY_PTR) {
-                if (rhs->type->ptr->kind == TY_INT) {
-                    lhs->size = 4;
-                }
-
-                if (rhs->type->ptr->kind == TY_PTR) {
-                    lhs->size = 8;
-                }
-            }
-
-            nd = node_res(ND_ADD, lhs, rhs);
+            nd = node_res(ND_ADD, nd, mul());
             continue;
         }
 
         if (consume("-")) {
-            Node *lhs = nd, *rhs = mul();
-
-            if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
-                fprintf(stderr, "invalid operands to binary '-'\n");
-                exit(1);
-            }
-
-            if (lhs->type && lhs->type->kind == TY_PTR) {
-                if (lhs->type->ptr->kind == TY_INT) {
-                    rhs->size = 4;
-                }
-
-                if (lhs->type->ptr->kind == TY_PTR) {
-                    rhs->size = 8;
-                }
-            }
-
-            if (rhs->type && rhs->type->kind == TY_PTR) {
-                if (rhs->type->ptr->kind == TY_INT) {
-                    lhs->size = 4;
-                }
-
-                if (rhs->type->ptr->kind == TY_PTR) {
-                    lhs->size = 8;
-                }
-            }
-
-            nd = node_res(ND_SUB, lhs, rhs);
+            nd = node_res(ND_SUB, nd, mul());
             continue;
         }
 
@@ -614,11 +560,46 @@ Node *prim(void) {
     return node_num(expect_num());
 }
 
-Node *node_res(NodeKind kind, Node *op1, Node *op2) {
+Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
     Node *nd = calloc(1, sizeof(Node));
     nd->kind = kind;
-    nd->op1 = op1;
-    nd->op2 = op2;
+    nd->op1 = lhs;
+    nd->op2 = rhs;
+
+    switch (kind) {
+        case ND_ADD:
+        case ND_SUB:
+            if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
+                fprintf(stderr, "invalid operands to binary '+'\n");
+                exit(1);
+            }
+
+            if (lhs->type && lhs->type->kind == TY_PTR) {
+                if (lhs->type->ptr->kind == TY_INT) {
+                    rhs->size = 4;
+                }
+
+                if (lhs->type->ptr->kind == TY_PTR) {
+                    rhs->size = 8;
+                }
+            }
+
+            if (rhs->type && rhs->type->kind == TY_PTR) {
+                if (rhs->type->ptr->kind == TY_INT) {
+                    lhs->size = 4;
+                }
+
+                if (rhs->type->ptr->kind == TY_PTR) {
+                    lhs->size = 8;
+                }
+            }
+
+            break;
+
+        default:
+            break;
+    }
+
     return nd;
 }
 
