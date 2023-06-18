@@ -6,6 +6,7 @@
 
 typedef struct Token Token;
 typedef struct Node Node;
+typedef struct Func Func;
 typedef struct Var Var;
 typedef struct Type Type;
 
@@ -43,6 +44,13 @@ struct Node {
     Node *op1, *op2, *op3, *op4;
 };
 
+struct Func {
+    char *name;
+    int len;
+    Type *type;
+    Func *next;
+};
+
 struct Var {
     char *name;
     int len;
@@ -67,7 +75,7 @@ long expect_num(void);
 bool is_eof(void);
 
 void prog(void);
-Node *func(void);
+Node *glob(void);
 Node *stmt(void);
 Node *expr(void);
 Node *asg(void);
@@ -81,7 +89,10 @@ Node *prim(void);
 Node *node_res(NodeKind, Node *, Node *);
 Node *node_num(long);
 Node *node_id(void);
+Node *node_func(void);
 Node *node_var(void);
+Func *new_func(Node *, Type *);
+Func *find_func(Node *);
 Var *new_var(Node *, Type *);
 Var *find_var(Node *);
 Type *new_type(void);
@@ -100,6 +111,7 @@ const char *reg_arg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 char *code;
 Token *token;
 Node *node[256];
+Func *func;
 Var *local;
 int jump;
 
@@ -247,21 +259,26 @@ bool is_eof(void) {
 
 void prog(void) {
     int i = 0;
+    func = calloc(1, sizeof(Func));
 
     while (!is_eof()) {
-        node[i++] = func();
+        node[i++] = glob();
     }
 
     node[i] = NULL;
+
+    do {
+        Func *del = func;
+        func = func->next;
+        free(del);
+    } while (func);
+
     return;
 }
 
-Node *func(void) {
+Node *glob(void) {
     local = calloc(1, sizeof(Var));
-    Type *ty = new_type();
-    Node *nd = node_id();
-    nd->kind = ND_FND;
-    nd->type = ty;
+    Node *nd = node_func();
     Node *arg;
     expect("(");
 
@@ -506,7 +523,7 @@ Node *add(void) {
                 }
             }
 
-            nd = node_res(ND_SUB, nd, mul());
+            nd = node_res(ND_SUB, lhs, rhs);
             continue;
         }
 
@@ -628,6 +645,15 @@ Node *node_id(void) {
     return nd;
 }
 
+Node *node_func(void) {
+    Type *ty = new_type();
+    Node *nd = node_id();
+    Func *fn = new_func(nd, ty);
+    nd->kind = ND_FND;
+    nd->type = ty;
+    return nd;
+}
+
 Node *node_var(void) {
     Type *ty = new_type();
     Node *nd = node_id();
@@ -638,7 +664,35 @@ Node *node_var(void) {
     return nd;
 }
 
-Var *new_var(Node* nd, Type *ty) {
+Func *new_func(Node *nd, Type *ty) {
+    for (Func *fn = func; fn; fn = fn->next) {
+        if (fn->len == nd->len && !strncmp(fn->name, nd->name, nd->len)) {
+            fprintf(stderr, "multiple definition of function \'%.*s\'\n", nd->len, nd->name);
+            exit(1);
+        }
+    }
+
+    Func *fn = calloc(1, sizeof(Func));
+    fn->type = ty;
+    fn->name = nd->name;
+    fn->len = nd->len;
+    fn->next = func;
+    func = fn;
+    return fn;
+}
+
+Func *find_func(Node *nd) {
+    for (Func *fn = func; fn; fn = fn->next) {
+        if (fn->len == nd->len && !strncmp(fn->name, nd->name, nd->len)) {
+            return fn;
+        }
+    }
+
+    fprintf(stderr, "undefined function \'%.*s\'\n", nd->len, nd->name);
+    exit(1);
+}
+
+Var *new_var(Node *nd, Type *ty) {
     for (Var *var = local; var; var = var->next) {
         if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
             fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
