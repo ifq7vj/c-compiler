@@ -34,6 +34,8 @@ struct Node {
     NodeKind kind;
     char *name;
     int len;
+    Type *type;
+    int size;
     long val;
     int ofs;
     int label;
@@ -44,6 +46,7 @@ struct Node {
 struct Var {
     char *name;
     int len;
+    Type *type;
     int ofs;
     Var *next;
 };
@@ -79,7 +82,7 @@ Node *node_res(NodeKind, Node *, Node *);
 Node *node_num(long);
 Node *node_id(void);
 Node *node_var(void);
-Var *new_var(Node *);
+Var *new_var(Node *, Type *);
 Var *find_var(Node *);
 Type *new_type(void);
 
@@ -258,6 +261,7 @@ Node *func(void) {
     Type *ty = new_type();
     Node *nd = node_id();
     nd->kind = ND_FND;
+    nd->type = ty;
     Node *arg;
     expect("(");
 
@@ -443,11 +447,65 @@ Node *add(void) {
 
     while (true) {
         if (consume("+")) {
-            nd = node_res(ND_ADD, nd, mul());
+            Node *lhs = nd, *rhs = mul();
+
+            if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
+                fprintf(stderr, "invalid operands to binary '+'\n");
+                exit(1);
+            }
+
+            if (lhs->type && lhs->type->kind == TY_PTR) {
+                if (lhs->type->ptr->kind == TY_INT) {
+                    rhs->size = 4;
+                }
+
+                if (lhs->type->ptr->kind == TY_PTR) {
+                    rhs->size = 8;
+                }
+            }
+
+            if (rhs->type && rhs->type->kind == TY_PTR) {
+                if (rhs->type->ptr->kind == TY_INT) {
+                    lhs->size = 4;
+                }
+
+                if (rhs->type->ptr->kind == TY_PTR) {
+                    lhs->size = 8;
+                }
+            }
+
+            nd = node_res(ND_ADD, lhs, rhs);
             continue;
         }
 
         if (consume("-")) {
+            Node *lhs = nd, *rhs = mul();
+
+            if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
+                fprintf(stderr, "invalid operands to binary '-'\n");
+                exit(1);
+            }
+
+            if (lhs->type && lhs->type->kind == TY_PTR) {
+                if (lhs->type->ptr->kind == TY_INT) {
+                    rhs->size = 4;
+                }
+
+                if (lhs->type->ptr->kind == TY_PTR) {
+                    rhs->size = 8;
+                }
+            }
+
+            if (rhs->type && rhs->type->kind == TY_PTR) {
+                if (rhs->type->ptr->kind == TY_INT) {
+                    lhs->size = 4;
+                }
+
+                if (rhs->type->ptr->kind == TY_PTR) {
+                    lhs->size = 8;
+                }
+            }
+
             nd = node_res(ND_SUB, nd, mul());
             continue;
         }
@@ -531,6 +589,7 @@ Node *prim(void) {
 
         Var *var = find_var(nd);
         nd->kind = ND_VAR;
+        nd->type = var->type;
         nd->ofs = var->ofs;
         return nd;
     }
@@ -572,13 +631,14 @@ Node *node_id(void) {
 Node *node_var(void) {
     Type *ty = new_type();
     Node *nd = node_id();
-    Var *var = new_var(nd);
+    Var *var = new_var(nd, ty);
     nd->kind = ND_VAR;
+    nd->type = ty;
     nd->ofs = var->ofs;
     return nd;
 }
 
-Var *new_var(Node* nd) {
+Var *new_var(Node* nd, Type *ty) {
     for (Var *var = local; var; var = var->next) {
         if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
             fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
@@ -587,6 +647,7 @@ Var *new_var(Node* nd) {
     }
 
     Var *var = calloc(1, sizeof(Var));
+    var->type = ty;
     var->name = nd->name;
     var->len = nd->len;
     var->ofs = local->ofs + 8;
@@ -773,7 +834,7 @@ void gen_expr(Node *nd) {
             break;
 
         case ND_NUM:
-            printf("    push %ld\n", nd->val);
+            printf("    push %ld\n", nd->val * (nd->size? nd->size: 1));
             free(nd);
             break;
 
