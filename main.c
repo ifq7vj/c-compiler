@@ -96,6 +96,8 @@ Func *find_func(Node *);
 Var *new_var(Node *, Type *);
 Var *find_var(Node *);
 Type *new_type(void);
+Type *copy_type(Type *);
+void del_type(Type *);
 
 void gen_code(void);
 void gen_func(Node *);
@@ -270,6 +272,7 @@ void prog(void) {
     do {
         Func *del = func;
         func = func->next;
+        // del_type(del->type);
         free(del);
     } while (func);
 
@@ -311,6 +314,7 @@ Node *glob(void) {
     do {
         Var *del = local;
         local = local->next;
+        // del_type(del->type);
         free(del);
     } while (local);
 
@@ -400,7 +404,9 @@ Node *stmt(void) {
 }
 
 Node *expr(void) {
-    return asg();
+    Node *nd = asg();
+    del_type(nd->type);
+    return nd;
 }
 
 Node *asg(void) {
@@ -517,7 +523,7 @@ Node *unary(void) {
 
 Node *prim(void) {
     if (consume("(")) {
-        Node *nd = expr();
+        Node *nd = asg();
         expect(")");
         return nd;
     }
@@ -526,7 +532,9 @@ Node *prim(void) {
         Node *nd = node_id();
 
         if (consume("(")) {
+            Func *fn = find_func(nd);
             nd->kind = ND_FNC;
+            nd->type = copy_type(fn->type);
             Node *arg;
 
             while (!consume(")")) {
@@ -552,7 +560,7 @@ Node *prim(void) {
 
         Var *var = find_var(nd);
         nd->kind = ND_VAR;
-        nd->type = var->type;
+        nd->type = copy_type(var->type);
         nd->ofs = var->ofs;
         return nd;
     }
@@ -567,10 +575,28 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
     nd->op2 = rhs;
 
     switch (kind) {
+        case ND_ASG:
+            nd->type = lhs->type;
+            del_type(rhs->type);
+            break;
+
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+            if (lhs->type && lhs->type->kind == TY_PTR || rhs->type && rhs->type->kind == TY_PTR) {
+                fprintf(stderr, "invalid operands to binary '==', '!=', '<', '<=', '>' or '>='\n");
+                exit(1);
+            }
+
+            nd->type = lhs->type;
+            del_type(rhs->type);
+            break;
+
         case ND_ADD:
         case ND_SUB:
             if (lhs->type && lhs->type->kind == TY_PTR && rhs->type && rhs->type->kind == TY_PTR) {
-                fprintf(stderr, "invalid operands to binary '+'\n");
+                fprintf(stderr, "invalid operands to binary '+' or '-'\n");
                 exit(1);
             }
 
@@ -582,6 +608,9 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
                 if (lhs->type->ptr->kind == TY_PTR) {
                     rhs->size = 8;
                 }
+
+                nd->type = lhs->type;
+                del_type(rhs->type);
             }
 
             if (rhs->type && rhs->type->kind == TY_PTR) {
@@ -592,8 +621,38 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
                 if (rhs->type->ptr->kind == TY_PTR) {
                     lhs->size = 8;
                 }
+
+                nd->type = rhs->type;
+                del_type(lhs->type);
             }
 
+            break;
+
+        case ND_MUL:
+        case ND_DIV:
+            if (lhs->type && lhs->type->kind == TY_PTR || rhs->type && rhs->type->kind == TY_PTR) {
+                fprintf(stderr, "invalid operands to binary '*' or '/'\n");
+                exit(1);
+            }
+
+            nd->type = lhs->type;
+            del_type(rhs->type);
+            break;
+
+        case ND_ADR:
+            nd->type = calloc(1, sizeof(Type));
+            nd->type->kind = TY_PTR;
+            nd->type->ptr = lhs->type;
+            break;
+
+        case ND_DER:
+            if (lhs->type && lhs->type->kind != TY_PTR) {
+                fprintf(stderr, "invalid operand to unary '*'\n");
+                exit(1);
+            }
+
+            nd->type = lhs->type->ptr;
+            free(lhs->type);
             break;
 
         default:
@@ -606,6 +665,8 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
 Node *node_num(long val) {
     Node *nd = calloc(1, sizeof(Node));
     nd->kind = ND_NUM;
+    nd->type = calloc(1, sizeof(Type));
+    nd->type->kind = TY_INT;
     nd->val = val;
     return nd;
 }
@@ -669,8 +730,9 @@ Func *find_func(Node *nd) {
         }
     }
 
-    fprintf(stderr, "undefined function \'%.*s\'\n", nd->len, nd->name);
-    exit(1);
+    // fprintf(stderr, "undefined function \'%.*s\'\n", nd->len, nd->name);
+    // exit(1);
+    return NULL;
 }
 
 Var *new_var(Node *nd, Type *ty) {
@@ -720,6 +782,30 @@ Type *new_type(void) {
     }
 
     return ty;
+}
+
+Type *copy_type(Type *ty) {
+    Type head;
+    Type *cur = &head;
+
+    do {
+        cur->ptr = calloc(1, sizeof(Type));
+        cur = cur->ptr;
+        cur->kind = ty->kind;
+        ty = ty->ptr;
+    } while (ty);
+
+    return head.ptr;
+}
+
+void del_type(Type *ty) {
+    do {
+        Type *del = ty;
+        ty = ty->ptr;
+        free(del);
+    } while (ty);
+
+    return;
 }
 
 void gen_code(void) {
