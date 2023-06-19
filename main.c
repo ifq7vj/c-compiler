@@ -272,7 +272,7 @@ void prog(void) {
     do {
         Func *del = func;
         func = func->next;
-        // del_type(del->type);
+        del_type(del->type);
         free(del);
     } while (func);
 
@@ -314,7 +314,7 @@ Node *glob(void) {
     do {
         Var *del = local;
         local = local->next;
-        // del_type(del->type);
+        del_type(del->type);
         free(del);
     } while (local);
 
@@ -799,11 +799,11 @@ Type *copy_type(Type *ty) {
 }
 
 void del_type(Type *ty) {
-    do {
+    while (ty) {
         Type *del = ty;
         ty = ty->ptr;
         free(del);
-    } while (ty);
+    }
 
     return;
 }
