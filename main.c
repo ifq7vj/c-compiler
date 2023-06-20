@@ -15,7 +15,7 @@ typedef enum {
 } TokenKind;
 
 typedef enum {
-    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_ID, ND_FND, ND_FNC, ND_VAR, ND_NUM,
+    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_FND, ND_FNC, ND_VAR, ND_NUM,
     ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
 } NodeKind;
 
@@ -88,12 +88,11 @@ Node *prim(void);
 
 Node *node_res(NodeKind, Node *, Node *);
 Node *node_num(long);
-Node *node_id(void);
 Node *node_func(void);
 Node *node_var(void);
-Func *new_func(Node *, Type *);
+Func *new_func(char *name, int len, Type *);
 Func *find_func(Node *);
-Var *new_var(Node *, Type *);
+Var *new_var(char *name, int len, Type *);
 Var *find_var(Node *);
 Type *new_type(void);
 Type *copy_type(Type *);
@@ -115,7 +114,7 @@ Token *token;
 Node *node[256];
 Func *func;
 Var *local;
-int jump;
+int jump = 0;
 
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -124,7 +123,6 @@ int main(int argc, char **argv) {
     }
 
     code = argv[1];
-    jump = 0;
     tokenize();
     prog();
     gen_code();
@@ -323,7 +321,17 @@ Node *glob(void) {
 
 Node *stmt(void) {
     if (compare("int")) {
-        Node *nd = node_var();
+        Type *ty = new_type();
+        char *name = token->str;
+        int len = token->len;
+        Token *del = token;
+        token = token->next;
+        free(del);
+        Var *var = new_var(name, len, ty);
+        Node *nd = calloc(1, sizeof(Node));
+        nd->kind = ND_VAR;
+        nd->type = ty;
+        nd->ofs = var->ofs;
         expect(";");
         return nd;
     }
@@ -529,7 +537,12 @@ Node *prim(void) {
     }
 
     if (token->kind == TK_ID) {
-        Node *nd = node_id();
+        Node *nd = calloc(1, sizeof(Node));
+        nd->name = token->str;
+        nd->len = token->len;
+        Token *del = token;
+        token = token->next;
+        free(del);
 
         if (consume("(")) {
             Func *fn = find_func(nd);
@@ -671,53 +684,49 @@ Node *node_num(long val) {
     return nd;
 }
 
-Node *node_id(void) {
-    if (token->kind != TK_ID) {
-        fprintf(stderr, "\'%.*s\' is not identifier\n", token->len, token->str);
-        exit(1);
-    }
-
-    Node *nd = calloc(1, sizeof(Node));
-    nd->kind = ND_ID;
-    nd->name = token->str;
-    nd->len = token->len;
+Node *node_func(void) {
+    Type *ty = new_type();
+    char *name = token->str;
+    int len = token->len;
     Token *del = token;
     token = token->next;
     free(del);
-    return nd;
-}
-
-Node *node_func(void) {
-    Type *ty = new_type();
-    Node *nd = node_id();
-    Func *fn = new_func(nd, ty);
+    Func *fn = new_func(name, len, ty);
+    Node *nd = calloc(1, sizeof(Node));
     nd->kind = ND_FND;
+    nd->name = name;
+    nd->len = len;
     nd->type = ty;
     return nd;
 }
 
 Node *node_var(void) {
     Type *ty = new_type();
-    Node *nd = node_id();
-    Var *var = new_var(nd, ty);
+    char *name = token->str;
+    int len = token->len;
+    Token *del = token;
+    token = token->next;
+    free(del);
+    Var *var = new_var(name, len, ty);
+    Node *nd = calloc(1, sizeof(Node));
     nd->kind = ND_VAR;
     nd->type = ty;
     nd->ofs = var->ofs;
     return nd;
 }
 
-Func *new_func(Node *nd, Type *ty) {
+Func *new_func(char *name, int len, Type *ty) {
     for (Func *fn = func; fn; fn = fn->next) {
-        if (fn->len == nd->len && !strncmp(fn->name, nd->name, nd->len)) {
-            fprintf(stderr, "multiple definition of function \'%.*s\'\n", nd->len, nd->name);
+        if (fn->len == len && !strncmp(fn->name, name, len)) {
+            fprintf(stderr, "multiple definition of function \'%.*s\'\n", len, name);
             exit(1);
         }
     }
 
     Func *fn = calloc(1, sizeof(Func));
     fn->type = ty;
-    fn->name = nd->name;
-    fn->len = nd->len;
+    fn->name = name;
+    fn->len = len;
     fn->next = func;
     func = fn;
     return fn;
@@ -732,21 +741,22 @@ Func *find_func(Node *nd) {
 
     // fprintf(stderr, "undefined function \'%.*s\'\n", nd->len, nd->name);
     // exit(1);
+
     return NULL;
 }
 
-Var *new_var(Node *nd, Type *ty) {
+Var *new_var(char *name, int len, Type *ty) {
     for (Var *var = local; var; var = var->next) {
-        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
-            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", nd->len, nd->name);
+        if (var->len == len && !strncmp(var->name, name, len)) {
+            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", len, name);
             exit(1);
         }
     }
 
     Var *var = calloc(1, sizeof(Var));
     var->type = ty;
-    var->name = nd->name;
-    var->len = nd->len;
+    var->name = name;
+    var->len = len;
     var->ofs = local->ofs + 8;
     var->next = local;
     local = var;
@@ -1063,7 +1073,7 @@ void gen_bin(Node *nd) {
     return;
 }
 
-void gen_lval(Node* nd) {
+void gen_lval(Node *nd) {
     switch (nd->kind) {
         case ND_VAR:
             printf("    mov rax, rbp\n");
