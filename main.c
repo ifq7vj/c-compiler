@@ -15,7 +15,7 @@ typedef enum {
 } TokenKind;
 
 typedef enum {
-    ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_FND, ND_FNC, ND_VAR, ND_NUM,
+    ND_NOP, ND_BLK, ND_IFEL, ND_WHILE, ND_FOR, ND_RET, ND_FND, ND_FNC, ND_VAR, ND_NUM,
     ND_ASG, ND_EQ, ND_NE, ND_LT, ND_LE, ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_ADR, ND_DER,
 } NodeKind;
 
@@ -91,9 +91,9 @@ Node *node_num(long);
 Node *node_func(void);
 Node *node_var(void);
 Func *new_func(char *name, int len, Type *);
-Func *find_func(Node *);
+Func *find_func(char *name, int len);
 Var *new_var(char *name, int len, Type *);
-Var *find_var(Node *);
+Var *find_var(char *name, int len);
 Type *new_type(void);
 Type *copy_type(Type *);
 void del_type(Type *);
@@ -328,11 +328,9 @@ Node *stmt(void) {
         token = token->next;
         free(del);
         Var *var = new_var(name, len, ty);
-        Node *nd = calloc(1, sizeof(Node));
-        nd->kind = ND_VAR;
-        nd->type = ty;
-        nd->ofs = var->ofs;
         expect(";");
+        Node *nd = calloc(1, sizeof(Node));
+        nd->kind = ND_NOP;
         return nd;
     }
 
@@ -545,7 +543,13 @@ Node *prim(void) {
         free(del);
 
         if (consume("(")) {
-            Func *fn = find_func(nd);
+            Func *fn = find_func(nd->name, nd->len);
+
+            if (!fn) {
+                fprintf(stderr, "undefined function: %.*s\n", nd->len, nd->name);
+                exit(1);
+            }
+
             nd->kind = ND_FNC;
             nd->type = copy_type(fn->type);
             Node *arg;
@@ -571,7 +575,13 @@ Node *prim(void) {
             return nd;
         }
 
-        Var *var = find_var(nd);
+        Var *var = find_var(nd->name, nd->len);
+
+        if (!var) {
+            fprintf(stderr, "undefined variable: %.*s\n", nd->len, nd->name);
+            exit(1);
+        }
+
         nd->kind = ND_VAR;
         nd->type = copy_type(var->type);
         nd->ofs = var->ofs;
@@ -716,11 +726,9 @@ Node *node_var(void) {
 }
 
 Func *new_func(char *name, int len, Type *ty) {
-    for (Func *fn = func; fn; fn = fn->next) {
-        if (fn->len == len && !strncmp(fn->name, name, len)) {
-            fprintf(stderr, "multiple definition of function \'%.*s\'\n", len, name);
-            exit(1);
-        }
+    if (find_func(name, len)) {
+        fprintf(stderr, "multiple definition of function \'%.*s\'\n", len, name);
+        exit(1);
     }
 
     Func *fn = calloc(1, sizeof(Func));
@@ -732,25 +740,20 @@ Func *new_func(char *name, int len, Type *ty) {
     return fn;
 }
 
-Func *find_func(Node *nd) {
+Func *find_func(char *name, int len) {
     for (Func *fn = func; fn; fn = fn->next) {
-        if (fn->len == nd->len && !strncmp(fn->name, nd->name, nd->len)) {
+        if (fn->len == len && !strncmp(fn->name, name, len)) {
             return fn;
         }
     }
-
-    // fprintf(stderr, "undefined function \'%.*s\'\n", nd->len, nd->name);
-    // exit(1);
 
     return NULL;
 }
 
 Var *new_var(char *name, int len, Type *ty) {
-    for (Var *var = local; var; var = var->next) {
-        if (var->len == len && !strncmp(var->name, name, len)) {
-            fprintf(stderr, "multiple definition of variable \'%.*s\'\n", len, name);
-            exit(1);
-        }
+    if (find_var(name, len)) {
+        fprintf(stderr, "multiple definition of variable \'%.*s\'\n", len, name);
+        exit(1);
     }
 
     Var *var = calloc(1, sizeof(Var));
@@ -763,15 +766,14 @@ Var *new_var(char *name, int len, Type *ty) {
     return var;
 }
 
-Var *find_var(Node *nd) {
+Var *find_var(char *name, int len) {
     for (Var *var = local; var; var = var->next) {
-        if (var->len == nd->len && !strncmp(var->name, nd->name, nd->len)) {
+        if (var->len == len && !strncmp(var->name, name, len)) {
             return var;
         }
     }
 
-    fprintf(stderr, "undefined variable \'%.*s\'\n", nd->len, nd->name);
-    exit(1);
+    return NULL;
 }
 
 Type *new_type(void) {
@@ -865,6 +867,10 @@ void gen_func(Node *nd) {
 
 void gen_stmt(Node *nd) {
     switch (nd->kind) {
+        case ND_NOP:
+            free(nd);
+            break;
+
         case ND_BLK:
             for (Node *cur = nd->head; cur; cur = cur->next) {
                 gen_stmt(cur);
