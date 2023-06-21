@@ -96,7 +96,6 @@ Var *new_var(char *name, int len, Type *);
 Var *find_var(char *name, int len);
 Type *new_type(void);
 Type *copy_type(Type *);
-void del_type(Type *);
 
 void gen_code(void);
 void gen_func(Node *);
@@ -217,9 +216,7 @@ bool consume(char *op) {
         return false;
     }
 
-    Token *del = token;
     token = token->next;
-    free(del);
     return true;
 }
 
@@ -229,9 +226,7 @@ void expect(char *op) {
         exit(1);
     }
 
-    Token *del = token;
     token = token->next;
-    free(del);
     return;
 }
 
@@ -242,9 +237,7 @@ long expect_num(void) {
     }
 
     long val = token->val;
-    Token *del = token;
     token = token->next;
-    free(del);
     return val;
 }
 
@@ -253,7 +246,6 @@ bool is_eof(void) {
         return false;
     }
 
-    free(token);
     return true;
 }
 
@@ -266,14 +258,6 @@ void prog(void) {
     }
 
     node[i] = NULL;
-
-    do {
-        Func *del = func;
-        func = func->next;
-        del_type(del->type);
-        free(del);
-    } while (func);
-
     return;
 }
 
@@ -308,14 +292,6 @@ Node *glob(void) {
 
     nd->op1 = stmt();
     nd->ofs = local->ofs;
-
-    do {
-        Var *del = local;
-        local = local->next;
-        del_type(del->type);
-        free(del);
-    } while (local);
-
     return nd;
 }
 
@@ -324,9 +300,7 @@ Node *stmt(void) {
         Type *ty = new_type();
         char *name = token->str;
         int len = token->len;
-        Token *del = token;
         token = token->next;
-        free(del);
         Var *var = new_var(name, len, ty);
         expect(";");
         Node *nd = calloc(1, sizeof(Node));
@@ -345,9 +319,7 @@ Node *stmt(void) {
             item = item->next;
         }
 
-        Node *del = nd->head;
         nd->head = nd->head->next;
-        free(del);
         return nd;
     }
 
@@ -410,9 +382,7 @@ Node *stmt(void) {
 }
 
 Node *expr(void) {
-    Node *nd = asg();
-    del_type(nd->type);
-    return nd;
+    return asg();
 }
 
 Node *asg(void) {
@@ -538,9 +508,7 @@ Node *prim(void) {
         Node *nd = calloc(1, sizeof(Node));
         nd->name = token->str;
         nd->len = token->len;
-        Token *del = token;
         token = token->next;
-        free(del);
 
         if (consume("(")) {
             Func *fn = find_func(nd->name, nd->len);
@@ -600,7 +568,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
     switch (kind) {
         case ND_ASG:
             nd->type = lhs->type;
-            del_type(rhs->type);
             break;
 
         case ND_EQ:
@@ -613,7 +580,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
             }
 
             nd->type = lhs->type;
-            del_type(rhs->type);
             break;
 
         case ND_ADD:
@@ -633,7 +599,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
                 }
 
                 nd->type = lhs->type;
-                del_type(rhs->type);
             }
 
             if (rhs->type && rhs->type->kind == TY_PTR) {
@@ -646,7 +611,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
                 }
 
                 nd->type = rhs->type;
-                del_type(lhs->type);
             }
 
             break;
@@ -659,7 +623,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
             }
 
             nd->type = lhs->type;
-            del_type(rhs->type);
             break;
 
         case ND_ADR:
@@ -675,7 +638,6 @@ Node *node_res(NodeKind kind, Node *lhs, Node *rhs) {
             }
 
             nd->type = lhs->type->ptr;
-            free(lhs->type);
             break;
 
         default:
@@ -698,9 +660,7 @@ Node *node_func(void) {
     Type *ty = new_type();
     char *name = token->str;
     int len = token->len;
-    Token *del = token;
     token = token->next;
-    free(del);
     Func *fn = new_func(name, len, ty);
     Node *nd = calloc(1, sizeof(Node));
     nd->kind = ND_FND;
@@ -714,9 +674,7 @@ Node *node_var(void) {
     Type *ty = new_type();
     char *name = token->str;
     int len = token->len;
-    Token *del = token;
     token = token->next;
-    free(del);
     Var *var = new_var(name, len, ty);
     Node *nd = calloc(1, sizeof(Node));
     nd->kind = ND_VAR;
@@ -810,16 +768,6 @@ Type *copy_type(Type *ty) {
     return head.ptr;
 }
 
-void del_type(Type *ty) {
-    while (ty) {
-        Type *del = ty;
-        ty = ty->ptr;
-        free(del);
-    }
-
-    return;
-}
-
 void gen_code(void) {
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
@@ -861,14 +809,12 @@ void gen_func(Node *nd) {
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
     printf("    ret\n");
-    free(nd);
     return;
 }
 
 void gen_stmt(Node *nd) {
     switch (nd->kind) {
         case ND_NOP:
-            free(nd);
             break;
 
         case ND_BLK:
@@ -876,7 +822,6 @@ void gen_stmt(Node *nd) {
                 gen_stmt(cur);
             }
 
-            free(nd);
             break;
 
         case ND_IFEL:
@@ -893,7 +838,6 @@ void gen_stmt(Node *nd) {
             }
 
             printf("\n.L%d:\n", nd->label + 1);
-            free(nd);
             break;
 
         case ND_WHILE:
@@ -905,7 +849,6 @@ void gen_stmt(Node *nd) {
             gen_stmt(nd->op2);
             printf("    jmp .L%d\n", nd->label);
             printf("\n.L%d:\n", nd->label + 1);
-            free(nd);
             break;
 
         case ND_FOR:
@@ -921,7 +864,6 @@ void gen_stmt(Node *nd) {
             printf("    pop rax\n");
             printf("    jmp .L%d\n", nd->label);
             printf("\n.L%d:\n", nd->label + 1);
-            free(nd);
             break;
 
         case ND_RET:
@@ -930,7 +872,6 @@ void gen_stmt(Node *nd) {
             printf("    mov rsp, rbp\n");
             printf("    pop rbp\n");
             printf("    ret\n");
-            free(nd);
             break;
 
         default:
@@ -948,8 +889,6 @@ void gen_expr(Node *nd) {
             printf("    mov rax, rbp\n");
             printf("    sub rax, %d\n", nd->op1->ofs);
             printf("    push rax\n");
-            free(nd->op1);
-            free(nd);
             break;
 
         case ND_DER:
@@ -957,7 +896,6 @@ void gen_expr(Node *nd) {
             printf("    pop rax\n");
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
-            free(nd);
             break;
 
         case ND_ASG:
@@ -967,12 +905,10 @@ void gen_expr(Node *nd) {
             printf("    pop rax\n");
             printf("    mov [rax], rdi\n");
             printf("    push rdi\n");
-            free(nd);
             break;
 
         case ND_NUM:
             printf("    push %ld\n", nd->val * (nd->size? nd->size: 1));
-            free(nd);
             break;
 
         case ND_FNC:
@@ -1003,7 +939,6 @@ void gen_expr(Node *nd) {
 
             printf("    mov rsp, [rsp]\n");
             printf("    push rax\n");
-            free(nd);
             break;
 
         case ND_VAR:
@@ -1011,7 +946,6 @@ void gen_expr(Node *nd) {
             printf("    sub rax, %d\n", nd->ofs);
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
-            free(nd);
             break;
 
         default:
@@ -1075,7 +1009,6 @@ void gen_bin(Node *nd) {
     }
 
     printf("    push rax\n");
-    free(nd);
     return;
 }
 
@@ -1085,7 +1018,6 @@ void gen_lval(Node *nd) {
             printf("    mov rax, rbp\n");
             printf("    sub rax, %d\n", nd->ofs);
             printf("    push rax\n");
-            free(nd);
             break;
 
         case ND_DER:
@@ -1093,7 +1025,6 @@ void gen_lval(Node *nd) {
             printf("    pop rax\n");
             printf("    mov rax, [rax]\n");
             printf("    push rax\n");
-            free(nd);
             break;
 
         default:
