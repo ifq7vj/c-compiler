@@ -19,6 +19,10 @@ void gen_code(void) {
 }
 
 void gen_func(Node *nd) {
+    if (nd->kind == ND_NOP) {
+        return;
+    }
+
     printf("\n%.*s:\n", nd->len, nd->name);
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");

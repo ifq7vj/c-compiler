@@ -47,6 +47,11 @@ Node *glob(void) {
         exit(1);
     }
 
+    if (consume(";")) {
+        nd->kind = ND_NOP;
+        return nd;
+    }
+
     if (!compare("{")) {
         fprintf(stderr, "expected '{'\n");
         exit(1);
@@ -446,10 +451,10 @@ Node *node_var(void) {
 }
 
 Func *new_func(char *name, int len, Type *ty) {
-    if (find_func(name, len)) {
-        fprintf(stderr, "multiple definition of function \'%.*s\'\n", len, name);
-        exit(1);
-    }
+    // if (find_func(name, len)) {
+    //     fprintf(stderr, "multiple definition of function \'%.*s\'\n", len, name);
+    //     exit(1);
+    // }
 
     Func *fn = calloc(1, sizeof(Func));
     fn->type = ty;
