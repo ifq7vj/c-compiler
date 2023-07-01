@@ -7,7 +7,7 @@
 
 tklist_t *lexer(FILE *);
 void tklist_show(const char *, tklist_t *);
-static void tklist_show_rec(const char *, tklist_t *);
+static void tklist_show_impl(const char *, tklist_t *);
 static void tkkind_show(tklist_t *);
 static void tkstr_show(tklist_t *);
 void tklist_free(tklist_t *);
@@ -52,12 +52,15 @@ tklist_t *lexer(FILE *ifp) {
 
 void tklist_show(const char *fmt, tklist_t *tkl) {
     fputs("tklist:", stdout);
-    tklist_show_rec(fmt, tkl);
+    tklist_show_impl(fmt, tkl);
     putchar('\n');
     return;
 }
 
-void tklist_show_rec(const char *fmt, tklist_t *tkl) {
+void tklist_show_impl(const char *fmt, tklist_t *tkl) {
+    if (tkl == NULL) {
+        return;
+    }
     putchar(' ');
     for (const char *ptr = fmt; *ptr != '\0'; ++ptr) {
         if (*ptr == '%') {
@@ -74,9 +77,7 @@ void tklist_show_rec(const char *fmt, tklist_t *tkl) {
             putchar(*ptr);
         }
     }
-    if (tkl->next != NULL) {
-        tklist_show_rec(fmt, tkl->next);
-    }
+    tklist_show_impl(fmt, tkl->next);
     return;
 }
 
@@ -126,7 +127,7 @@ void tkstr_show(tklist_t *tkl) {
         fputs("/", stdout);
         return;
     case TK_MOD:
-        fputs("%%", stdout);
+        fputs("%", stdout);
         return;
     case TK_LPAR:
         fputs("(", stdout);
