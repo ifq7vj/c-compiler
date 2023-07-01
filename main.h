@@ -47,4 +47,6 @@ astree_t *parser(tklist_t *);
 void astree_show(const char *, astree_t *);
 void astree_free(astree_t *);
 
+void generator(FILE *, astree_t *);
+
 #endif

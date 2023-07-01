@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
     assert(ofp != NULL);
     tklist_t *tkl = lexer(ifp);
     astree_t *ast = parser(tkl);
+    generator(ofp, ast);
     tklist_show("[%k: '%s']", tkl);
     astree_show("[%k: '%s']", ast);
     assert(fclose(ifp) == 0);
