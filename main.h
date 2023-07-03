@@ -15,6 +15,7 @@ typedef enum {
     TK_LPAR,
     TK_RPAR,
     TK_NUM,
+    TK_ID,
 } tkkind_t;
 
 typedef enum {
@@ -29,6 +30,7 @@ typedef enum {
 struct tklist_t {
     tkkind_t kind;
     long long num;
+    char *id;
     tklist_t *next;
 };
 
