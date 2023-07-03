@@ -45,8 +45,8 @@ tklist_t *lexer(FILE *ifp) {
         ungetc(chr, ifp);
     } else if (isalpha(chr) || chr == '_') {
         tkl->kind = TK_ID;
-        tkl->id = malloc(sizeof(char));
-        size_t len = 0, cap = 1;
+        tkl->id = malloc(sizeof(char) * 16);
+        size_t len = 0, cap = 16;
         do {
             if (len == cap) {
                 tkl->id = realloc(tkl->id, cap *= 2);
