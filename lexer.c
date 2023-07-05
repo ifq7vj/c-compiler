@@ -36,6 +36,8 @@ tklist_t *lexer(FILE *ifp) {
         tkl->kind = TK_LPAR;
     } else if (chr == ')') {
         tkl->kind = TK_RPAR;
+    } else if (chr == ';') {
+        tkl->kind = TK_SCLN;
     } else if (isdigit(chr)) {
         tkl->kind = TK_NUM;
         tkl->num = chr - '0';
@@ -46,15 +48,16 @@ tklist_t *lexer(FILE *ifp) {
     } else if (isalpha(chr) || chr == '_') {
         tkl->kind = TK_ID;
         tkl->id = malloc(sizeof(char) * 16);
+        assert(tkl->id != NULL);
         size_t len = 0, cap = 16;
         do {
             if (len == cap) {
-                tkl->id = realloc(tkl->id, cap *= 2);
+                tkl->id = realloc(tkl->id, sizeof(char) * (cap *= 2));
                 assert(tkl->id != NULL);
             }
             tkl->id[len++] = chr;
         } while (isalnum(chr = fgetc(ifp)) || chr == '_');
-        tkl->id = realloc(tkl->id, len + 1);
+        tkl->id = realloc(tkl->id, sizeof(char) * (len + 1));
         assert(tkl->id != NULL);
         tkl->id[len] = '\0';
         ungetc(chr, ifp);
@@ -119,8 +122,14 @@ void tkkind_show(tklist_t *tkl) {
     case TK_RPAR:
         fputs("TK_RPAR", stdout);
         return;
+    case TK_SCLN:
+        fputs("TK_SCLN", stdout);
+        return;
     case TK_NUM:
         fputs("TK_NUM", stdout);
+        return;
+    case TK_ID:
+        fputs("TK_ID", stdout);
         return;
     default:
         assert(false);
@@ -150,8 +159,14 @@ void tkstr_show(tklist_t *tkl) {
     case TK_RPAR:
         fputs(")", stdout);
         return;
+    case TK_SCLN:
+        fputs(";", stdout);
+        return;
     case TK_NUM:
         printf("%lld", tkl->num);
+        return;
+    case TK_ID:
+        printf("%s", tkl->id);
         return;
     default:
         assert(false);

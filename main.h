@@ -14,6 +14,7 @@ typedef enum {
     TK_MOD,
     TK_LPAR,
     TK_RPAR,
+    TK_SCLN,
     TK_NUM,
     TK_ID,
 } tkkind_t;
