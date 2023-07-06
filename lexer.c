@@ -6,10 +6,8 @@
 #include "main.h"
 
 tklist_t *lexer(FILE *);
-void tklist_show(const char *, tklist_t *);
-static void tklist_show_impl(const char *, tklist_t *);
-static void tkkind_show(tklist_t *);
-static void tkstr_show(tklist_t *);
+void tklist_show(tklist_t *);
+static void tklist_show_impl(tklist_t *);
 void tklist_free(tklist_t *);
 
 tklist_t *lexer(FILE *ifp) {
@@ -68,109 +66,56 @@ tklist_t *lexer(FILE *ifp) {
     return tkl;
 }
 
-void tklist_show(const char *fmt, tklist_t *tkl) {
+void tklist_show(tklist_t *tkl) {
     fputs("tklist:", stdout);
-    tklist_show_impl(fmt, tkl);
+    tklist_show_impl(tkl);
     putchar('\n');
     return;
 }
 
-void tklist_show_impl(const char *fmt, tklist_t *tkl) {
+void tklist_show_impl(tklist_t *tkl) {
     if (tkl == NULL) {
         return;
     }
     putchar(' ');
-    for (const char *ptr = fmt; *ptr != '\0'; ++ptr) {
-        if (*ptr == '%') {
-            if (*++ptr == 'k') {
-                tkkind_show(tkl);
-            } else if (*ptr == 's') {
-                tkstr_show(tkl);
-            } else if (*ptr == '%') {
-                putchar('%');
-            } else {
-                assert(false);
-            }
-        } else {
-            putchar(*ptr);
-        }
+    putchar('(');
+    switch (tkl->kind) {
+    case TK_ADD:
+        fputs("TK_ADD: '+'", stdout);
+        break;
+    case TK_SUB:
+        fputs("TK_SUB: '-'", stdout);
+        break;
+    case TK_MUL:
+        fputs("TK_MUL: '*'", stdout);
+        break;
+    case TK_DIV:
+        fputs("TK_DIV: '/'", stdout);
+        break;
+    case TK_MOD:
+        fputs("TK_MOD: '%'", stdout);
+        break;
+    case TK_LPAR:
+        fputs("TK_LPAR: '('", stdout);
+        break;
+    case TK_RPAR:
+        fputs("TK_RPAR: ')'", stdout);
+        break;
+    case TK_SCLN:
+        fputs("TK_SCLN: ';'", stdout);
+        break;
+    case TK_NUM:
+        printf("TK_NUM: '%lld'", tkl->num);
+        break;
+    case TK_ID:
+        printf("TK_ID: '%s'", tkl->id);
+        break;
+    default:
+        assert(false);
     }
-    tklist_show_impl(fmt, tkl->next);
+    putchar(')');
+    tklist_show_impl(tkl->next);
     return;
-}
-
-void tkkind_show(tklist_t *tkl) {
-    switch (tkl->kind) {
-    case TK_ADD:
-        fputs("TK_ADD", stdout);
-        return;
-    case TK_SUB:
-        fputs("TK_SUB", stdout);
-        return;
-    case TK_MUL:
-        fputs("TK_MUL", stdout);
-        return;
-    case TK_DIV:
-        fputs("TK_DIV", stdout);
-        return;
-    case TK_MOD:
-        fputs("TK_MOD", stdout);
-        return;
-    case TK_LPAR:
-        fputs("TK_LPAR", stdout);
-        return;
-    case TK_RPAR:
-        fputs("TK_RPAR", stdout);
-        return;
-    case TK_SCLN:
-        fputs("TK_SCLN", stdout);
-        return;
-    case TK_NUM:
-        fputs("TK_NUM", stdout);
-        return;
-    case TK_ID:
-        fputs("TK_ID", stdout);
-        return;
-    default:
-        assert(false);
-    }
-}
-
-void tkstr_show(tklist_t *tkl) {
-    switch (tkl->kind) {
-    case TK_ADD:
-        fputs("+", stdout);
-        return;
-    case TK_SUB:
-        fputs("-", stdout);
-        return;
-    case TK_MUL:
-        fputs("*", stdout);
-        return;
-    case TK_DIV:
-        fputs("/", stdout);
-        return;
-    case TK_MOD:
-        fputs("%", stdout);
-        return;
-    case TK_LPAR:
-        fputs("(", stdout);
-        return;
-    case TK_RPAR:
-        fputs(")", stdout);
-        return;
-    case TK_SCLN:
-        fputs(";", stdout);
-        return;
-    case TK_NUM:
-        printf("%lld", tkl->num);
-        return;
-    case TK_ID:
-        printf("%s", tkl->id);
-        return;
-    default:
-        assert(false);
-    }
 }
 
 void tklist_free(tklist_t *tkl) {

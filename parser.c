@@ -11,10 +11,8 @@ static astree_t *parser_unary(tklist_t **);
 static astree_t *parser_factor(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
 static astree_t *astree_newnum(long long);
-void astree_show(const char *, astree_t *);
-static void astree_show_impl(const char *, astree_t *);
-static void askind_show(astree_t *);
-static void asstr_show(astree_t *);
+void astree_show(astree_t *);
+static void astree_show_impl(astree_t *);
 void astree_free(astree_t *);
 
 astree_t *parser(tklist_t *tkl) {
@@ -94,90 +92,49 @@ astree_t *astree_newnum(long long num) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_NUM;
     ast->num = num;
+    ast->lhs = NULL;
+    ast->rhs = NULL;
     return ast;
 }
 
-void astree_show(const char *fmt, astree_t *ast) {
+void astree_show(astree_t *ast) {
     fputs("astree:", stdout);
-    astree_show_impl(fmt, ast);
+    astree_show_impl(ast);
     putchar('\n');
     return;
 }
 
-void astree_show_impl(const char *fmt, astree_t *ast) {
+void astree_show_impl(astree_t *ast) {
     if (ast == NULL) {
         return;
     }
     putchar(' ');
-    for (const char *ptr = fmt; *ptr != '\0'; ++ptr) {
-        if (*ptr == '%') {
-            if (*++ptr == 'k') {
-                askind_show(ast);
-            } else if (*ptr == 's') {
-                asstr_show(ast);
-            } else if (*ptr == '%') {
-                putchar('%');
-            } else {
-                assert(false);
-            }
-        } else {
-            putchar(*ptr);
-        }
-    }
-    astree_show_impl(fmt, ast->lhs);
-    astree_show_impl(fmt, ast->rhs);
-    return;
-}
-
-void askind_show(astree_t *ast) {
+    putchar('(');
     switch (ast->kind) {
     case AS_ADD:
-        fputs("AS_ADD", stdout);
+        fputs("AS_ADD:", stdout);
         break;
     case AS_SUB:
-        fputs("AS_SUB", stdout);
+        fputs("AS_SUB:", stdout);
         break;
     case AS_MUL:
-        fputs("AS_MUL", stdout);
+        fputs("AS_MUL:", stdout);
         break;
     case AS_DIV:
-        fputs("AS_DIV", stdout);
+        fputs("AS_DIV:", stdout);
         break;
     case AS_MOD:
-        fputs("AS_MOD", stdout);
+        fputs("AS_MOD:", stdout);
         break;
     case AS_NUM:
-        fputs("AS_NUM", stdout);
+        printf("AS_NUM: '%lld'", ast->num);
         break;
     default:
         assert(false);
     }
-    return;
-}
-
-void asstr_show(astree_t *ast) {
-    switch (ast->kind) {
-    case AS_ADD:
-        fputs("+", stdout);
-        break;
-    case AS_SUB:
-        fputs("-", stdout);
-        break;
-    case AS_MUL:
-        fputs("*", stdout);
-        break;
-    case AS_DIV:
-        fputs("/", stdout);
-        break;
-    case AS_MOD:
-        fputs("%", stdout);
-        break;
-    case AS_NUM:
-        printf("%lld", ast->num);
-        break;
-    default:
-        assert(false);
-    }
+    astree_show_impl(ast->lhs);
+    astree_show_impl(ast->rhs);
+    putchar(')');
     return;
 }
 

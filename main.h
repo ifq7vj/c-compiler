@@ -30,24 +30,28 @@ typedef enum {
 
 struct tklist_t {
     tkkind_t kind;
-    long long num;
-    char *id;
+    union {
+        long long num;
+        char *id;
+    };
     tklist_t *next;
 };
 
 struct astree_t {
     askind_t kind;
-    long long num;
+    union {
+        long long num;
+    };
     astree_t *lhs;
     astree_t *rhs;
 };
 
 tklist_t *lexer(FILE *);
-void tklist_show(const char *, tklist_t *);
+void tklist_show(tklist_t *);
 void tklist_free(tklist_t *);
 
 astree_t *parser(tklist_t *);
-void astree_show(const char *, astree_t *);
+void astree_show(astree_t *);
 void astree_free(astree_t *);
 
 void generator(FILE *, astree_t *);
