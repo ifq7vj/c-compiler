@@ -13,7 +13,6 @@ int main(int argc, char **argv) {
     generator(ofp, ast);
     tklist_show(tkl);
     astree_show(ast);
-    generator(stdout, ast);
     assert(fclose(ifp) == 0);
     assert(fclose(ofp) == 0);
     tklist_free(tkl);
