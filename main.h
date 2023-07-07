@@ -12,6 +12,7 @@ typedef enum {
     TK_MUL,
     TK_DIV,
     TK_MOD,
+    TK_ASG,
     TK_LPAR,
     TK_RPAR,
     TK_SCLN,
@@ -25,6 +26,7 @@ typedef enum {
     AS_MUL,
     AS_DIV,
     AS_MOD,
+    AS_ASG,
     AS_NUM,
 } askind_t;
 

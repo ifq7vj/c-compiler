@@ -30,6 +30,8 @@ tklist_t *lexer(FILE *ifp) {
         tkl->kind = TK_DIV;
     } else if (chr == '%') {
         tkl->kind = TK_MOD;
+    } else if (chr == '=') {
+        tkl->kind = TK_ASG;
     } else if (chr == '(') {
         tkl->kind = TK_LPAR;
     } else if (chr == ')') {
@@ -94,6 +96,9 @@ void tklist_show_impl(tklist_t *tkl) {
         break;
     case TK_MOD:
         fputs("TK_MOD: '%'", stdout);
+        break;
+    case TK_ASG:
+        fputs("TK_ASG: '='", stdout);
         break;
     case TK_LPAR:
         fputs("TK_LPAR: '('", stdout);
