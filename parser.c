@@ -5,6 +5,8 @@
 #include "main.h"
 
 astree_t *parser(tklist_t *);
+static astree_t *parser_prog(tklist_t **);
+static astree_t *parser_stmt(tklist_t **);
 static astree_t *parser_expr(tklist_t **);
 static astree_t *parser_term(tklist_t **);
 static astree_t *parser_unary(tklist_t **);
@@ -16,7 +18,23 @@ static void astree_show_impl(astree_t *);
 void astree_free(astree_t *);
 
 astree_t *parser(tklist_t *tkl) {
-    return parser_expr(&tkl);
+    return parser_prog(&tkl);
+}
+
+astree_t *parser_prog(tklist_t **tkl) {
+    if (*tkl == NULL) {
+        return NULL;
+    }
+    astree_t *ast = parser_stmt(tkl);
+    ast->next = parser_prog(tkl);
+    return ast;
+}
+
+astree_t *parser_stmt(tklist_t **tkl) {
+    astree_t *ast = parser_expr(tkl);
+    assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
+    *tkl = (*tkl)->next;
+    return ast;
 }
 
 astree_t *parser_expr(tklist_t **tkl) {
@@ -135,6 +153,7 @@ void astree_show_impl(astree_t *ast) {
     astree_show_impl(ast->lhs);
     astree_show_impl(ast->rhs);
     putchar(')');
+    astree_show_impl(ast->next);
     return;
 }
 

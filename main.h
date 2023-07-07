@@ -42,8 +42,8 @@ struct astree_t {
     union {
         long long num;
     };
-    astree_t *lhs;
-    astree_t *rhs;
+    astree_t *lhs, *rhs;
+    astree_t *next;
 };
 
 tklist_t *lexer(FILE *);

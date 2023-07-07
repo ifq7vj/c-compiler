@@ -5,6 +5,7 @@
 
 void generator(FILE *, astree_t *);
 static void generate_prog(FILE *, astree_t *);
+static void generate_stmt(FILE *, astree_t *);
 static void generate_expr(FILE *, astree_t *);
 
 void generator(FILE *ofp, astree_t *ast) {
@@ -16,9 +17,15 @@ void generator(FILE *ofp, astree_t *ast) {
 void generate_prog(FILE *ofp, astree_t *ast) {
     fputs(".global main\n", ofp);
     fputs("main:\n", ofp);
+    generate_stmt(ofp, ast);
+    fputs("    ret\n", ofp);
+    return;
+}
+
+void generate_stmt(FILE *ofp, astree_t *ast) {
     generate_expr(ofp, ast);
     fputs("    popq %rax\n", ofp);
-    fputs("    ret\n", ofp);
+    generate_expr(ofp, ast->next);
     return;
 }
 
@@ -78,9 +85,15 @@ void generate_expr(FILE *ofp, astree_t *ast) {
 void generate_prog(FILE *ofp, astree_t *ast) {
     fputs(".global main\n", ofp);
     fputs("main:\n", ofp);
+    generate_stmt(ofp, ast);
+    fputs("    ret\n", ofp);
+    return;
+}
+
+void generate_stmt(FILE *ofp, astree_t *ast) {
     generate_expr(ofp, ast);
     fputs("    ldr x0, [sp], #16\n", ofp);
-    fputs("    ret\n", ofp);
+    generate_expr(ofp, ast->next);
     return;
 }
 
