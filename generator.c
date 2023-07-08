@@ -17,7 +17,12 @@ void generator(FILE *ofp, astree_t *ast) {
 void generate_prog(FILE *ofp, astree_t *ast) {
     fputs(".global main\n", ofp);
     fputs("main:\n", ofp);
+    fputs("    pushq %rbp\n", ofp);
+    fputs("    movq %rsp, %rbp\n", ofp);
+    fputs("    subq $256, %rsp\n", ofp);
     generate_stmt(ofp, ast);
+    fputs("    movq %rbp, %rsp\n", ofp);
+    fputs("    popq %rbp\n", ofp);
     fputs("    ret\n", ofp);
     return;
 }
@@ -77,12 +82,18 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rdx\n", ofp);
         break;
     case AS_ASG:
-        assert(false);
+        generate_expr(ofp, ast->rhs);
+        fputs("    popq %rax\n", ofp);
+        fprintf(ofp, "    movq %%rax, -%zu(%%rbp)\n", ast->lhs->ofs << 3);
+        fputs("    pushq %rax\n", ofp);
+        break;
     case AS_NUM:
         fprintf(ofp, "    pushq $%lld\n", ast->num);
         break;
     case AS_VAR:
-        assert(false);
+        fprintf(ofp, "    movq -%zu(%%rbp), %%rax\n", ast->ofs << 3);
+        fputs("    pushq %rax\n", ofp);
+        break;
     default:
         assert(false);
     }
@@ -92,7 +103,12 @@ void generate_expr(FILE *ofp, astree_t *ast) {
 void generate_prog(FILE *ofp, astree_t *ast) {
     fputs(".global main\n", ofp);
     fputs("main:\n", ofp);
+    fputs("    str x29, [sp, #-16]!\n", ofp);
+    fputs("    mov x29, sp\n", ofp);
+    fputs("    sub sp, sp, #256\n", ofp);
     generate_stmt(ofp, ast);
+    fputs("    mov sp, x29\n", ofp);
+    fputs("    ldr x29, [sp], #16\n", ofp);
     fputs("    ret\n", ofp);
     return;
 }
@@ -151,13 +167,19 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_ASG:
-        assert(false);
+        generate_expr(ofp, ast->rhs);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        fprintf(ofp, "    str x0, [sp, #-%zu]\n", ast->lhs->ofs << 4);
+        fputs("    str x0, [sp, #-16]!\n", ofp);
+        break;
     case AS_NUM:
         fprintf(ofp, "    mov x0, #%lld\n", ast->num);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_VAR:
-        assert(false);
+        fprintf(ofp, "    ldr x0, [sp, #-%zu]\n", ast->ofs << 4);
+        fputs("    str x0, [sp, #-16]!\n", ofp);
+        break;
     default:
         assert(false);
     }

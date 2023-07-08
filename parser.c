@@ -6,13 +6,13 @@
 #include "main.h"
 
 astree_t *parser(tklist_t *);
-static astree_t *parser_prog(tklist_t **);
-static astree_t *parser_stmt(tklist_t **);
-static astree_t *parser_expr(tklist_t **);
-static astree_t *parser_add(tklist_t **);
-static astree_t *parser_mul(tklist_t **);
-static astree_t *parser_unary(tklist_t **);
-static astree_t *parser_factor(tklist_t **);
+static astree_t *parse_prog(tklist_t **);
+static astree_t *parse_stmt(tklist_t **);
+static astree_t *parse_expr(tklist_t **);
+static astree_t *parse_add(tklist_t **);
+static astree_t *parse_mul(tklist_t **);
+static astree_t *parse_unary(tklist_t **);
+static astree_t *parse_factor(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
 static astree_t *astree_newnum(long long);
 static astree_t *astree_newvar(char *);
@@ -30,82 +30,82 @@ astree_t *parser(tklist_t *tkl) {
     local->id = NULL;
     local->ofs = 0;
     local->next = NULL;
-    astree_t *ast = parser_prog(&tkl);
+    astree_t *ast = parse_prog(&tkl);
     idlist_freevar(local);
     return ast;
 }
 
-astree_t *parser_prog(tklist_t **tkl) {
+astree_t *parse_prog(tklist_t **tkl) {
     if (*tkl == NULL) {
         return NULL;
     }
-    astree_t *ast = parser_stmt(tkl);
-    ast->next = parser_prog(tkl);
+    astree_t *ast = parse_stmt(tkl);
+    ast->next = parse_prog(tkl);
     return ast;
 }
 
-astree_t *parser_stmt(tklist_t **tkl) {
-    astree_t *ast = parser_expr(tkl);
+astree_t *parse_stmt(tklist_t **tkl) {
+    astree_t *ast = parse_expr(tkl);
     assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
     *tkl = (*tkl)->next;
     return ast;
 }
 
-astree_t *parser_expr(tklist_t **tkl) {
-    astree_t *ast = parser_add(tkl);
+astree_t *parse_expr(tklist_t **tkl) {
+    astree_t *ast = parse_add(tkl);
     if (*tkl != NULL && (*tkl)->kind == TK_ASG) {
         *tkl = (*tkl)->next;
-        ast = astree_newbin(AS_ASG, ast, parser_expr(tkl));
+        ast = astree_newbin(AS_ASG, ast, parse_expr(tkl));
     }
     return ast;
 }
 
-astree_t *parser_add(tklist_t **tkl) {
-    astree_t *ast = parser_mul(tkl);
+astree_t *parse_add(tklist_t **tkl) {
+    astree_t *ast = parse_mul(tkl);
     while (true) {
         if (*tkl != NULL && (*tkl)->kind == TK_ADD) {
             *tkl = (*tkl)->next;
-            ast = astree_newbin(AS_ADD, ast, parser_mul(tkl));
+            ast = astree_newbin(AS_ADD, ast, parse_mul(tkl));
         } else if (*tkl != NULL && (*tkl)->kind == TK_SUB) {
             *tkl = (*tkl)->next;
-            ast = astree_newbin(AS_SUB, ast, parser_mul(tkl));
+            ast = astree_newbin(AS_SUB, ast, parse_mul(tkl));
         } else {
             return ast;
         }
     }
 }
 
-astree_t *parser_mul(tklist_t **tkl) {
-    astree_t *ast = parser_unary(tkl);
+astree_t *parse_mul(tklist_t **tkl) {
+    astree_t *ast = parse_unary(tkl);
     while (true) {
         if (*tkl != NULL && (*tkl)->kind == TK_MUL) {
             *tkl = (*tkl)->next;
-            ast = astree_newbin(AS_MUL, ast, parser_unary(tkl));
+            ast = astree_newbin(AS_MUL, ast, parse_unary(tkl));
         } else if (*tkl != NULL && (*tkl)->kind == TK_DIV) {
             *tkl = (*tkl)->next;
-            ast = astree_newbin(AS_DIV, ast, parser_unary(tkl));
+            ast = astree_newbin(AS_DIV, ast, parse_unary(tkl));
         } else if (*tkl != NULL && (*tkl)->kind == TK_MOD) {
             *tkl = (*tkl)->next;
-            ast = astree_newbin(AS_MOD, ast, parser_unary(tkl));
+            ast = astree_newbin(AS_MOD, ast, parse_unary(tkl));
         } else {
             return ast;
         }
     }
 }
 
-astree_t *parser_unary(tklist_t **tkl) {
+astree_t *parse_unary(tklist_t **tkl) {
     if (*tkl != NULL && (*tkl)->kind == TK_ADD) {
         *tkl = (*tkl)->next;
-        return astree_newbin(AS_ADD, astree_newnum(0), parser_unary(tkl));
+        return astree_newbin(AS_ADD, astree_newnum(0), parse_unary(tkl));
     } else if (*tkl != NULL && (*tkl)->kind == TK_SUB) {
         *tkl = (*tkl)->next;
-        return astree_newbin(AS_SUB, astree_newnum(0), parser_unary(tkl));
+        return astree_newbin(AS_SUB, astree_newnum(0), parse_unary(tkl));
     } else {
-        return parser_factor(tkl);
+        return parse_factor(tkl);
     }
 }
 
-astree_t *parser_factor(tklist_t **tkl) {
+astree_t *parse_factor(tklist_t **tkl) {
     if (*tkl != NULL && (*tkl)->kind == TK_NUM) {
         astree_t *ast = astree_newnum((*tkl)->num);
         *tkl = (*tkl)->next;
@@ -116,7 +116,7 @@ astree_t *parser_factor(tklist_t **tkl) {
         return ast;
     } else if (*tkl != NULL && (*tkl)->kind == TK_LPAR) {
         *tkl = (*tkl)->next;
-        astree_t *ast = parser_expr(tkl);
+        astree_t *ast = parse_expr(tkl);
         assert(*tkl != NULL && (*tkl)->kind == TK_RPAR);
         *tkl = (*tkl)->next;
         return ast;
@@ -168,7 +168,7 @@ idlist_t *idlist_findvar(char *id, idlist_t *idl) {
 idlist_t *idlist_newvar(char *id, idlist_t *next) {
     idlist_t *idl = malloc(sizeof(idlist_t));
     idl->id = id;
-    idl->ofs = next->ofs + 8;
+    idl->ofs = next->ofs + 1;
     idl->next = next;
     return idl;
 }
