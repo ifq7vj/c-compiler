@@ -23,9 +23,12 @@ void generate_prog(FILE *ofp, astree_t *ast) {
 }
 
 void generate_stmt(FILE *ofp, astree_t *ast) {
+    if (ast == NULL) {
+        return;
+    }
     generate_expr(ofp, ast);
     fputs("    popq %rax\n", ofp);
-    generate_expr(ofp, ast->next);
+    generate_stmt(ofp, ast->next);
     return;
 }
 
@@ -73,9 +76,13 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    idivq %rbx\n", ofp);
         fputs("    pushq %rdx\n", ofp);
         break;
+    case AS_ASG:
+        assert(false);
     case AS_NUM:
         fprintf(ofp, "    pushq $%lld\n", ast->num);
         break;
+    case AS_VAR:
+        assert(false);
     default:
         assert(false);
     }
@@ -91,9 +98,12 @@ void generate_prog(FILE *ofp, astree_t *ast) {
 }
 
 void generate_stmt(FILE *ofp, astree_t *ast) {
+    if (ast == NULL) {
+        return;
+    }
     generate_expr(ofp, ast);
     fputs("    ldr x0, [sp], #16\n", ofp);
-    generate_expr(ofp, ast->next);
+    generate_stmt(ofp, ast->next);
     return;
 }
 
@@ -140,10 +150,14 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    msub x0, x1, x2, x0\n", ofp);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
+    case AS_ASG:
+        assert(false);
     case AS_NUM:
         fprintf(ofp, "    mov x0, #%lld\n", ast->num);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
+    case AS_VAR:
+        assert(false);
     default:
         assert(false);
     }

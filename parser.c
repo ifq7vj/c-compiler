@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "main.h"
 
 astree_t *parser(tklist_t *);
@@ -14,12 +15,24 @@ static astree_t *parser_unary(tklist_t **);
 static astree_t *parser_factor(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
 static astree_t *astree_newnum(long long);
+static astree_t *astree_newvar(char *);
+static idlist_t *idlist_newvar(char *, idlist_t *);
+static idlist_t *idlist_findvar(char *, idlist_t *);
+static void idlist_freevar(idlist_t *);
 void astree_show(astree_t *);
 static void astree_show_impl(astree_t *);
 void astree_free(astree_t *);
 
+idlist_t *local;
+
 astree_t *parser(tklist_t *tkl) {
-    return parser_prog(&tkl);
+    local = malloc(sizeof(idlist_t));
+    local->id = NULL;
+    local->ofs = 0;
+    local->next = NULL;
+    astree_t *ast = parser_prog(&tkl);
+    idlist_freevar(local);
+    return ast;
 }
 
 astree_t *parser_prog(tklist_t **tkl) {
@@ -97,6 +110,10 @@ astree_t *parser_factor(tklist_t **tkl) {
         astree_t *ast = astree_newnum((*tkl)->num);
         *tkl = (*tkl)->next;
         return ast;
+    } else if (*tkl != NULL && (*tkl)->kind == TK_ID) {
+        astree_t *ast = astree_newvar((*tkl)->id);
+        *tkl = (*tkl)->next;
+        return ast;
     } else if (*tkl != NULL && (*tkl)->kind == TK_LPAR) {
         *tkl = (*tkl)->next;
         astree_t *ast = parser_expr(tkl);
@@ -123,6 +140,46 @@ astree_t *astree_newnum(long long num) {
     ast->lhs = NULL;
     ast->rhs = NULL;
     return ast;
+}
+
+astree_t *astree_newvar(char *id) {
+    idlist_t *idl = idlist_findvar(id, local);
+    if (idl == NULL) {
+        idl = local = idlist_newvar(id, local);
+    }
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_VAR;
+    ast->ofs = idl->ofs;
+    ast->lhs = NULL;
+    ast->rhs = NULL;
+    return ast;
+}
+
+idlist_t *idlist_findvar(char *id, idlist_t *idl) {
+    if (idl == NULL) {
+        return NULL;
+    }
+    if (idl->id != NULL && strcmp(id, idl->id) == 0) {
+        return idl;
+    }
+    return idlist_findvar(id, idl->next);
+}
+
+idlist_t *idlist_newvar(char *id, idlist_t *next) {
+    idlist_t *idl = malloc(sizeof(idlist_t));
+    idl->id = id;
+    idl->ofs = next->ofs + 8;
+    idl->next = next;
+    return idl;
+}
+
+void idlist_freevar(idlist_t *idl) {
+    if (idl == NULL) {
+        return;
+    }
+    idlist_freevar(idl->next);
+    free(idl);
+    return;
 }
 
 void astree_show(astree_t *ast) {
@@ -159,6 +216,9 @@ void astree_show_impl(astree_t *ast) {
         break;
     case AS_NUM:
         printf("AS_NUM: '%lld'", ast->num);
+        break;
+    case AS_VAR:
+        printf("AS_VAR: '%zu'", ast->ofs);
         break;
     default:
         assert(false);

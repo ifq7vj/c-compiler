@@ -5,6 +5,7 @@
 
 typedef struct tklist_t tklist_t;
 typedef struct astree_t astree_t;
+typedef struct idlist_t idlist_t;
 
 typedef enum {
     TK_ADD,
@@ -28,6 +29,7 @@ typedef enum {
     AS_MOD,
     AS_ASG,
     AS_NUM,
+    AS_VAR,
 } askind_t;
 
 struct tklist_t {
@@ -43,9 +45,16 @@ struct astree_t {
     askind_t kind;
     union {
         long long num;
+        size_t ofs;
     };
     astree_t *lhs, *rhs;
     astree_t *next;
+};
+
+struct idlist_t {
+    char *id;
+    size_t ofs;
+    idlist_t *next;
 };
 
 tklist_t *lexer(FILE *);
