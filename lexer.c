@@ -62,9 +62,13 @@ tklist_t *lexer(FILE *ifp) {
             tkl->kind = TK_GT;
         }
     } else if (chr == '(') {
-        tkl->kind = TK_LPAR;
+        tkl->kind = TK_LPRN;
     } else if (chr == ')') {
-        tkl->kind = TK_RPAR;
+        tkl->kind = TK_RPRN;
+    } else if (chr == '{') {
+        tkl->kind = TK_LBRC;
+    } else if (chr == '}') {
+        tkl->kind = TK_RBRC;
     } else if (chr == ';') {
         tkl->kind = TK_SCLN;
     } else if (isdigit(chr)) {
@@ -147,11 +151,17 @@ void tklist_show_impl(tklist_t *tkl) {
     case TK_ASG:
         fputs("TK_ASG: '='", stdout);
         break;
-    case TK_LPAR:
-        fputs("TK_LPAR: '('", stdout);
+    case TK_LPRN:
+        fputs("TK_LPRN: '('", stdout);
         break;
-    case TK_RPAR:
-        fputs("TK_RPAR: ')'", stdout);
+    case TK_RPRN:
+        fputs("TK_RPRN: ')'", stdout);
+        break;
+    case TK_LBRC:
+        fputs("TK_LBRC: '{'", stdout);
+        break;
+    case TK_RBRC:
+        fputs("TK_RBRC: '}'", stdout);
         break;
     case TK_SCLN:
         fputs("TK_SCLN: ';'", stdout);

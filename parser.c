@@ -152,10 +152,10 @@ astree_t *parse_factor(tklist_t **tkl) {
         astree_t *ast = astree_newvar((*tkl)->id);
         *tkl = (*tkl)->next;
         return ast;
-    } else if (*tkl != NULL && (*tkl)->kind == TK_LPAR) {
+    } else if (*tkl != NULL && (*tkl)->kind == TK_LPRN) {
         *tkl = (*tkl)->next;
         astree_t *ast = parse_expr(tkl);
-        assert(*tkl != NULL && (*tkl)->kind == TK_RPAR);
+        assert(*tkl != NULL && (*tkl)->kind == TK_RPRN);
         *tkl = (*tkl)->next;
         return ast;
     } else {
