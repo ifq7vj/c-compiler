@@ -31,7 +31,36 @@ tklist_t *lexer(FILE *ifp) {
     } else if (chr == '%') {
         tkl->kind = TK_MOD;
     } else if (chr == '=') {
-        tkl->kind = TK_ASG;
+        chr = fgetc(ifp);
+        if (chr == '=') {
+            tkl->kind = TK_EQ;
+        } else {
+            ungetc(chr, ifp);
+            tkl->kind = TK_ASG;
+        }
+    } else if (chr == '!') {
+        chr = fgetc(ifp);
+        if (chr == '=') {
+            tkl->kind = TK_NE;
+        } else {
+            assert(false);
+        }
+    } else if (chr == '<') {
+        chr = fgetc(ifp);
+        if (chr == '=') {
+            tkl->kind = TK_LE;
+        } else {
+            ungetc(chr, ifp);
+            tkl->kind = TK_LT;
+        }
+    } else if (chr == '>') {
+        chr = fgetc(ifp);
+        if (chr == '=') {
+            tkl->kind = TK_GE;
+        } else {
+            ungetc(chr, ifp);
+            tkl->kind = TK_GT;
+        }
     } else if (chr == '(') {
         tkl->kind = TK_LPAR;
     } else if (chr == ')') {
@@ -96,6 +125,24 @@ void tklist_show_impl(tklist_t *tkl) {
         break;
     case TK_MOD:
         fputs("TK_MOD: '%'", stdout);
+        break;
+    case TK_EQ:
+        fputs("TK_EQ: '=='", stdout);
+        break;
+    case TK_NE:
+        fputs("TK_NE: '!='", stdout);
+        break;
+    case TK_LT:
+        fputs("TK_LT: '<'", stdout);
+        break;
+    case TK_LE:
+        fputs("TK_LE: '<='", stdout);
+        break;
+    case TK_GT:
+        fputs("TK_GT: '>'", stdout);
+        break;
+    case TK_GE:
+        fputs("TK_GE: '>='", stdout);
         break;
     case TK_ASG:
         fputs("TK_ASG: '='", stdout);

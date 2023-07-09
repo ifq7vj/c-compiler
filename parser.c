@@ -149,6 +149,7 @@ astree_t *astree_newvar(char *id) {
     }
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_VAR;
+    ast->id = idl->id;
     ast->ofs = idl->ofs;
     ast->lhs = NULL;
     ast->rhs = NULL;
@@ -218,7 +219,7 @@ void astree_show_impl(astree_t *ast) {
         printf("AS_NUM: '%lld'", ast->num);
         break;
     case AS_VAR:
-        printf("AS_VAR: '%zu'", ast->ofs);
+        printf("AS_VAR: '%s'", ast->id);
         break;
     default:
         assert(false);

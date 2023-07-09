@@ -13,6 +13,12 @@ typedef enum {
     TK_MUL,
     TK_DIV,
     TK_MOD,
+    TK_EQ,
+    TK_NE,
+    TK_LT,
+    TK_LE,
+    TK_GT,
+    TK_GE,
     TK_ASG,
     TK_LPAR,
     TK_RPAR,
@@ -45,7 +51,10 @@ struct astree_t {
     askind_t kind;
     union {
         long long num;
-        size_t ofs;
+        struct {
+            char *id;
+            size_t ofs;
+        };
     };
     astree_t *lhs, *rhs;
     astree_t *next;
