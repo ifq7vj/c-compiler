@@ -25,6 +25,11 @@ typedef enum {
     TK_LBRC,
     TK_RBRC,
     TK_SCLN,
+    TK_IF,
+    TK_ELSE,
+    TK_WHILE,
+    TK_FOR,
+    TK_RET,
     TK_NUM,
     TK_ID,
 } tkkind_t;

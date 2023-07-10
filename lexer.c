@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "main.h"
 
 tklist_t *lexer(FILE *);
@@ -79,21 +80,39 @@ tklist_t *lexer(FILE *ifp) {
         }
         ungetc(chr, ifp);
     } else if (isalpha(chr) || chr == '_') {
-        tkl->kind = TK_ID;
-        tkl->id = malloc(sizeof(char) * 16);
-        assert(tkl->id != NULL);
+        char *str = malloc(sizeof(char) * 16);
+        assert(str != NULL);
         size_t len = 0, cap = 16;
         do {
             if (len == cap) {
-                tkl->id = realloc(tkl->id, sizeof(char) * (cap *= 2));
-                assert(tkl->id != NULL);
+                str = realloc(str, sizeof(char) * (cap *= 2));
+                assert(str != NULL);
             }
-            tkl->id[len++] = chr;
+            str[len++] = chr;
         } while (isalnum(chr = fgetc(ifp)) || chr == '_');
-        tkl->id = realloc(tkl->id, sizeof(char) * (len + 1));
-        assert(tkl->id != NULL);
-        tkl->id[len] = '\0';
+        str = realloc(str, sizeof(char) * (len + 1));
+        assert(str != NULL);
+        str[len] = '\0';
         ungetc(chr, ifp);
+        if (strcmp(str, "if") == 0) {
+            free(str);
+            tkl->kind = TK_IF;
+        } else if (strcmp(str, "else") == 0) {
+            free(str);
+            tkl->kind = TK_ELSE;
+        } else if (strcmp(str, "while") == 0) {
+            free(str);
+            tkl->kind = TK_WHILE;
+        } else if (strcmp(str, "for") == 0) {
+            free(str);
+            tkl->kind = TK_FOR;
+        } else if (strcmp(str, "return") == 0) {
+            free(str);
+            tkl->kind = TK_RET;
+        } else {
+            tkl->kind = TK_ID;
+            tkl->id = str;
+        }
     } else {
         assert(false);
     }
@@ -165,6 +184,21 @@ void tklist_show_impl(tklist_t *tkl) {
         break;
     case TK_SCLN:
         fputs("TK_SCLN: ';'", stdout);
+        break;
+    case TK_IF:
+        fputs("TK_IF: 'if'", stdout);
+        break;
+    case TK_ELSE:
+        fputs("TK_ELSE: 'else'", stdout);
+        break;
+    case TK_WHILE:
+        fputs("TK_WHILE: 'while'", stdout);
+        break;
+    case TK_FOR:
+        fputs("TK_FOR: 'for'", stdout);
+        break;
+    case TK_RET:
+        fputs("TK_RET: 'return'", stdout);
         break;
     case TK_NUM:
         printf("TK_NUM: '%lld'", tkl->num);
