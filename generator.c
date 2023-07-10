@@ -40,32 +40,32 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
 void generate_expr(FILE *ofp, astree_t *ast) {
     switch (ast->kind) {
     case AS_ADD:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    addq %rbx, %rax\n", ofp);
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_SUB:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    subq %rbx, %rax\n", ofp);
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_MUL:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    imulq %rbx\n", ofp);
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_DIV:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cqto\n", ofp);
@@ -73,8 +73,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_MOD:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cqto\n", ofp);
@@ -82,8 +82,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rdx\n", ofp);
         break;
     case AS_EQ:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -92,8 +92,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_NE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -102,8 +102,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_LT:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -112,8 +112,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_LE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -122,8 +122,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_GT:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -132,8 +132,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_GE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rbx\n", ofp);
         fputs("    popq %rax\n", ofp);
         fputs("    cmpq %rbx, %rax\n", ofp);
@@ -142,17 +142,17 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_ASG:
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_right);
         fputs("    popq %rax\n", ofp);
-        fprintf(ofp, "    movq %%rax, -%zu(%%rbp)\n", ast->lhs->ofs << 3);
+        fprintf(ofp, "    movq %%rax, -%zu(%%rbp)\n", ast->bin_left->var_ofs << 3);
+        fputs("    pushq %rax\n", ofp);
+        break;
+    case AS_VAR:
+        fprintf(ofp, "    movq -%zu(%%rbp), %%rax\n", ast->var_ofs << 3);
         fputs("    pushq %rax\n", ofp);
         break;
     case AS_NUM:
-        fprintf(ofp, "    pushq $%lld\n", ast->num);
-        break;
-    case AS_VAR:
-        fprintf(ofp, "    movq -%zu(%%rbp), %%rax\n", ast->ofs << 3);
-        fputs("    pushq %rax\n", ofp);
+        fprintf(ofp, "    pushq $%lld\n", ast->num_val);
         break;
     default:
         assert(false);
@@ -186,40 +186,40 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
 void generate_expr(FILE *ofp, astree_t *ast) {
     switch (ast->kind) {
     case AS_ADD:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    add x0, x0, x1\n", ofp);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_SUB:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    sub x0, x0, x1\n", ofp);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_MUL:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    mul x0, x0, x1\n", ofp);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_DIV:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    sdiv x0, x0, x1\n", ofp);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_MOD:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    sdiv x2, x0, x1\n", ofp);
@@ -227,8 +227,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_EQ:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -236,8 +236,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_NE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -245,8 +245,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_LT:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -254,8 +254,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_LE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -263,8 +263,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_GT:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -272,8 +272,8 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_GE:
-        generate_expr(ofp, ast->lhs);
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_left);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x1, [sp], #16\n", ofp);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    cmp x0, x1\n", ofp);
@@ -281,17 +281,17 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_ASG:
-        generate_expr(ofp, ast->rhs);
+        generate_expr(ofp, ast->bin_right);
         fputs("    ldr x0, [sp], #16\n", ofp);
-        fprintf(ofp, "    str x0, [sp, #-%zu]\n", ast->lhs->ofs << 4);
-        fputs("    str x0, [sp, #-16]!\n", ofp);
-        break;
-    case AS_NUM:
-        fprintf(ofp, "    mov x0, #%lld\n", ast->num);
+        fprintf(ofp, "    str x0, [x29, #-%zu]\n", ast->bin_left->var_ofs << 4);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_VAR:
-        fprintf(ofp, "    ldr x0, [sp, #-%zu]\n", ast->ofs << 4);
+        fprintf(ofp, "    ldr x0, [x29, #-%zu]\n", ast->var_ofs << 4);
+        fputs("    str x0, [sp, #-16]!\n", ofp);
+        break;
+    case AS_NUM:
+        fprintf(ofp, "    mov x0, #%lld\n", ast->num_val);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     default:

@@ -18,8 +18,8 @@ static astree_t *parse_mul(tklist_t **);
 static astree_t *parse_unary(tklist_t **);
 static astree_t *parse_prim(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
-static astree_t *astree_newnum(long long);
 static astree_t *astree_newvar(char *);
+static astree_t *astree_newnum(long long);
 static idlist_t *idlist_newvar(char *, idlist_t *);
 static idlist_t *idlist_findvar(char *, idlist_t *);
 static void idlist_freevar(idlist_t *);
@@ -186,17 +186,8 @@ astree_t *parse_prim(tklist_t **tkl) {
 astree_t *astree_newbin(askind_t kind, astree_t *lhs, astree_t *rhs) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = kind;
-    ast->lhs = lhs;
-    ast->rhs = rhs;
-    return ast;
-}
-
-astree_t *astree_newnum(long long num) {
-    astree_t *ast = malloc(sizeof(astree_t));
-    ast->kind = AS_NUM;
-    ast->num = num;
-    ast->lhs = NULL;
-    ast->rhs = NULL;
+    ast->bin_left = lhs;
+    ast->bin_right = rhs;
     return ast;
 }
 
@@ -207,10 +198,15 @@ astree_t *astree_newvar(char *id) {
     }
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_VAR;
-    ast->id = idl->id;
-    ast->ofs = idl->ofs;
-    ast->lhs = NULL;
-    ast->rhs = NULL;
+    ast->var_id = idl->id;
+    ast->var_ofs = idl->ofs;
+    return ast;
+}
+
+astree_t *astree_newnum(long long num) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_NUM;
+    ast->num_val = num;
     return ast;
 }
 
@@ -257,63 +253,105 @@ void astree_show_impl(astree_t *ast) {
     switch (ast->kind) {
     case AS_ADD:
         fputs("AS_ADD:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_SUB:
         fputs("AS_SUB:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_MUL:
         fputs("AS_MUL:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_DIV:
         fputs("AS_DIV:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_MOD:
         fputs("AS_MOD:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_EQ:
         fputs("AS_EQ:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_NE:
         fputs("AS_NE:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_LT:
         fputs("AS_LT:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_LE:
         fputs("AS_LE:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_GT:
         fputs("AS_GT:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_GE:
         fputs("AS_GE:", stdout);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_ASG:
         fputs("AS_ASG:", stdout);
-        break;
-    case AS_NUM:
-        printf("AS_NUM: '%lld'", ast->num);
+        astree_show_impl(ast->bin_left);
+        astree_show_impl(ast->bin_right);
         break;
     case AS_VAR:
-        printf("AS_VAR: '%s'", ast->id);
+        printf("AS_VAR: '%s'", ast->var_id);
+        break;
+    case AS_NUM:
+        printf("AS_NUM: '%lld'", ast->num_val);
         break;
     default:
         assert(false);
     }
-    astree_show_impl(ast->lhs);
-    astree_show_impl(ast->rhs);
     putchar(')');
     astree_show_impl(ast->next);
     return;
 }
 
 void astree_free(astree_t *ast) {
-    if (ast->lhs != NULL) {
-        astree_free(ast->lhs);
+    if (ast == NULL) {
+        return;
     }
-    if (ast->rhs != NULL) {
-        astree_free(ast->rhs);
+    switch (ast->kind) {
+    case AS_ADD:
+    case AS_SUB:
+    case AS_MUL:
+    case AS_DIV:
+    case AS_MOD:
+    case AS_EQ:
+    case AS_NE:
+    case AS_LT:
+    case AS_LE:
+    case AS_GT:
+    case AS_GE:
+    case AS_ASG:
+        astree_free(ast->bin_left);
+        astree_free(ast->bin_right);
+        break;
+    case AS_VAR:
+    case AS_NUM:
+        break;
+    default:
+        assert(false);
     }
+    astree_free(ast->next);
     free(ast);
     return;
 }

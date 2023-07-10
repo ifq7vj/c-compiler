@@ -30,8 +30,8 @@ typedef enum {
     TK_WHILE,
     TK_FOR,
     TK_RET,
-    TK_NUM,
     TK_ID,
+    TK_NUM,
 } tkkind_t;
 
 typedef enum {
@@ -47,15 +47,15 @@ typedef enum {
     AS_GT,
     AS_GE,
     AS_ASG,
-    AS_NUM,
     AS_VAR,
+    AS_NUM,
 } askind_t;
 
 struct tklist_t {
     tkkind_t kind;
     union {
-        long long num;
         char *id;
+        long long num;
     };
     tklist_t *next;
 };
@@ -63,13 +63,21 @@ struct tklist_t {
 struct astree_t {
     askind_t kind;
     union {
-        long long num;
         struct {
-            char *id;
-            size_t ofs;
+            astree_t *un_op;
+        };
+        struct {
+            astree_t *bin_left;
+            astree_t *bin_right;
+        };
+        struct {
+            char *var_id;
+            size_t var_ofs;
+        };
+        struct {
+            long long num_val;
         };
     };
-    astree_t *lhs, *rhs;
     astree_t *next;
 };
 
