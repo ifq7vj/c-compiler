@@ -18,6 +18,7 @@ static astree_t *parse_mul(tklist_t **);
 static astree_t *parse_unary(tklist_t **);
 static astree_t *parse_prim(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
+static astree_t *astree_newret(astree_t *);
 static astree_t *astree_newvar(char *);
 static astree_t *astree_newnum(long long);
 static idlist_t *idlist_newvar(char *, idlist_t *);
@@ -55,7 +56,13 @@ astree_t *parse_block(tklist_t **tkl) {
 }
 
 astree_t *parse_stmt(tklist_t **tkl) {
-    if (*tkl != NULL && (*tkl)->kind == TK_LBRC) {
+    if (*tkl != NULL && (*tkl)->kind == TK_RET) {
+        *tkl = (*tkl)->next;
+        astree_t *ast = astree_newret(parse_expr(tkl));
+        assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
+        *tkl = (*tkl)->next;
+        return ast;
+    } else if (*tkl != NULL && (*tkl)->kind == TK_LBRC) {
         *tkl = (*tkl)->next;
         astree_t *ast = parse_block(tkl);
         assert(*tkl != NULL && (*tkl)->kind == TK_RBRC);
@@ -191,6 +198,13 @@ astree_t *astree_newbin(askind_t kind, astree_t *lhs, astree_t *rhs) {
     return ast;
 }
 
+astree_t *astree_newret(astree_t *val) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_RET;
+    ast->ret_val = val;
+    return ast;
+}
+
 astree_t *astree_newvar(char *id) {
     idlist_t *idl = idlist_findvar(id, local);
     if (idl == NULL) {
@@ -311,6 +325,10 @@ void astree_show_impl(astree_t *ast) {
         astree_show_impl(ast->bin_left);
         astree_show_impl(ast->bin_right);
         break;
+    case AS_RET:
+        fputs("AS_RET:", stdout);
+        astree_show_impl(ast->ret_val);
+        break;
     case AS_VAR:
         printf("AS_VAR: '%s'", ast->var_id);
         break;
@@ -344,6 +362,9 @@ void astree_free(astree_t *ast) {
     case AS_ASG:
         astree_free(ast->bin_left);
         astree_free(ast->bin_right);
+        break;
+    case AS_RET:
+        astree_free(ast->ret_val);
         break;
     case AS_VAR:
     case AS_NUM:
