@@ -18,6 +18,9 @@ static astree_t *parse_mul(tklist_t **);
 static astree_t *parse_unary(tklist_t **);
 static astree_t *parse_prim(tklist_t **);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
+static astree_t *astree_newif(astree_t *, astree_t *, astree_t *);
+static astree_t *astree_newwhile(astree_t *, astree_t *);
+static astree_t *astree_newfor(astree_t *, astree_t *, astree_t *, astree_t *);
 static astree_t *astree_newret(astree_t *);
 static astree_t *astree_newvar(char *);
 static astree_t *astree_newnum(long long);
@@ -56,7 +59,46 @@ astree_t *parse_block(tklist_t **tkl) {
 }
 
 astree_t *parse_stmt(tklist_t **tkl) {
-    if (*tkl != NULL && (*tkl)->kind == TK_RET) {
+    if (*tkl != NULL && (*tkl)->kind == TK_IF) {
+        *tkl = (*tkl)->next;
+        assert(*tkl != NULL && (*tkl)->kind == TK_LPRN);
+        *tkl = (*tkl)->next;
+        astree_t *if_cond = parse_expr(tkl);
+        assert(*tkl != NULL && (*tkl)->kind == TK_RPRN);
+        *tkl = (*tkl)->next;
+        astree_t *if_then = parse_stmt(tkl);
+        if (*tkl != NULL && (*tkl)->kind == TK_ELSE) {
+            *tkl = (*tkl)->next;
+            astree_t *if_else = parse_stmt(tkl);
+            return astree_newif(if_cond, if_then, if_else);
+        } else {
+            return astree_newif(if_cond, if_then, NULL);
+        }
+    } else if (*tkl != NULL && (*tkl)->kind == TK_WHILE) {
+        *tkl = (*tkl)->next;
+        assert(*tkl != NULL && (*tkl)->kind == TK_LPRN);
+        *tkl = (*tkl)->next;
+        astree_t *while_cond = parse_expr(tkl);
+        assert(*tkl != NULL && (*tkl)->kind == TK_RPRN);
+        *tkl = (*tkl)->next;
+        astree_t *while_body = parse_stmt(tkl);
+        return astree_newwhile(while_cond, while_body);
+    } else if (*tkl != NULL && (*tkl)->kind == TK_FOR) {
+        *tkl = (*tkl)->next;
+        assert(*tkl != NULL && (*tkl)->kind == TK_LPRN);
+        *tkl = (*tkl)->next;
+        astree_t *for_init = parse_expr(tkl);
+        assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
+        *tkl = (*tkl)->next;
+        astree_t *for_cond = parse_expr(tkl);
+        assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
+        *tkl = (*tkl)->next;
+        astree_t *for_step = parse_expr(tkl);
+        assert(*tkl != NULL && (*tkl)->kind == TK_RPRN);
+        *tkl = (*tkl)->next;
+        astree_t *for_body = parse_stmt(tkl);
+        return astree_newfor(for_init, for_cond, for_step, for_body);
+    } else if (*tkl != NULL && (*tkl)->kind == TK_RET) {
         *tkl = (*tkl)->next;
         astree_t *ast = astree_newret(parse_expr(tkl));
         assert(*tkl != NULL && (*tkl)->kind == TK_SCLN);
@@ -198,6 +240,33 @@ astree_t *astree_newbin(askind_t kind, astree_t *lhs, astree_t *rhs) {
     return ast;
 }
 
+astree_t *astree_newif(astree_t *if_cond, astree_t *if_then, astree_t *if_else) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_IF;
+    ast->if_cond = if_cond;
+    ast->if_then = if_then;
+    ast->if_else = if_else;
+    return ast;
+}
+
+astree_t *astree_newwhile(astree_t *while_cond, astree_t *while_body) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_WHILE;
+    ast->while_cond = while_cond;
+    ast->while_body = while_body;
+    return ast;
+}
+
+astree_t *astree_newfor(astree_t *for_init, astree_t *for_cond, astree_t *for_step, astree_t *for_body) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_FOR;
+    ast->for_init = for_init;
+    ast->for_cond = for_cond;
+    ast->for_step = for_step;
+    ast->for_body = for_body;
+    return ast;
+}
+
 astree_t *astree_newret(astree_t *val) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_RET;
@@ -325,6 +394,24 @@ void astree_show_impl(astree_t *ast) {
         astree_show_impl(ast->bin_left);
         astree_show_impl(ast->bin_right);
         break;
+    case AS_IF:
+        fputs("AS_IF:", stdout);
+        astree_show_impl(ast->if_cond);
+        astree_show_impl(ast->if_then);
+        astree_show_impl(ast->if_else);
+        break;
+    case AS_WHILE:
+        fputs("AS_WHILE:", stdout);
+        astree_show_impl(ast->while_cond);
+        astree_show_impl(ast->while_body);
+        break;
+    case AS_FOR:
+        fputs("AS_FOR:", stdout);
+        astree_show_impl(ast->for_init);
+        astree_show_impl(ast->for_cond);
+        astree_show_impl(ast->for_step);
+        astree_show_impl(ast->for_body);
+        break;
     case AS_RET:
         fputs("AS_RET:", stdout);
         astree_show_impl(ast->ret_val);
@@ -362,6 +449,21 @@ void astree_free(astree_t *ast) {
     case AS_ASG:
         astree_free(ast->bin_left);
         astree_free(ast->bin_right);
+        break;
+    case AS_IF:
+        astree_free(ast->if_cond);
+        astree_free(ast->if_then);
+        astree_free(ast->if_else);
+        break;
+    case AS_WHILE:
+        astree_free(ast->while_cond);
+        astree_free(ast->while_body);
+        break;
+    case AS_FOR:
+        astree_free(ast->for_init);
+        astree_free(ast->for_cond);
+        astree_free(ast->for_step);
+        astree_free(ast->for_body);
         break;
     case AS_RET:
         astree_free(ast->ret_val);

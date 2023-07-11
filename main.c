@@ -9,13 +9,13 @@ int main(int argc, char **argv) {
     assert(ifp != NULL);
     assert(ofp != NULL);
     tklist_t *tkl = lexer(ifp);
-    tklist_show(tkl);
     astree_t *ast = parser(tkl);
+    // generator(ofp, ast);
+    tklist_show(tkl);
     astree_show(ast);
-    generator(ofp, ast);
-    assert(fclose(ifp) == 0);
-    assert(fclose(ofp) == 0);
     tklist_free(tkl);
     astree_free(ast);
+    assert(fclose(ifp) == 0);
+    assert(fclose(ofp) == 0);
     return 0;
 }
