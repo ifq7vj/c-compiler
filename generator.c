@@ -184,9 +184,23 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
     if (ast == NULL) {
         return;
     }
-    generate_expr(ofp, ast);
-    fputs("    ldr x0, [sp], #16\n", ofp);
-    generate_stmt(ofp, ast->next);
+    switch (ast->kind) {
+    case AS_RET:
+        generate_expr(ofp, ast->bin_left);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        fputs("    mov sp, x29\n", ofp);
+        fputs("    ldr x29, [sp], #16\n", ofp);
+        fputs("    ret\n", ofp);
+        break;
+    case AS_BLK:
+        generate_stmt(ofp, ast->blk_body);
+        generate_stmt(ofp, ast->blk_next);
+        break;
+    default:
+        generate_expr(ofp, ast);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        break;
+    }
     return;
 }
 
@@ -292,13 +306,6 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fputs("    ldr x0, [sp], #16\n", ofp);
         fprintf(ofp, "    str x0, [x29, #-%zu]\n", ast->bin_left->var_ofs << 4);
         fputs("    str x0, [sp, #-16]!\n", ofp);
-        break;
-    case AS_RET:
-        generate_expr(ofp, ast->bin_left);
-        fputs("    ldr x0, [sp], #16\n", ofp);
-        fputs("    mov sp, x29\n", ofp);
-        fputs("    ldr x29, [sp], #16\n", ofp);
-        fputs("    ret\n", ofp);
         break;
     case AS_VAR:
         fprintf(ofp, "    ldr x0, [x29, #-%zu]\n", ast->var_ofs << 4);

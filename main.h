@@ -1,6 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
 typedef struct tklist_t tklist_t;
@@ -51,6 +52,7 @@ typedef enum {
     AS_WHILE,
     AS_FOR,
     AS_RET,
+    AS_BLK,
     AS_VAR,
     AS_NUM,
 } askind_t;
@@ -93,6 +95,10 @@ struct astree_t {
             astree_t *for_body;
         };
         struct {
+            astree_t *blk_body;
+            astree_t *blk_next;
+        };
+        struct {
             char *var_id;
             size_t var_ofs;
         };
@@ -100,7 +106,6 @@ struct astree_t {
             long long num_val;
         };
     };
-    astree_t *next;
 };
 
 struct idlist_t {
@@ -110,6 +115,11 @@ struct idlist_t {
 };
 
 tklist_t *lexer(FILE *);
+bool tklist_read(tklist_t **, tkkind_t);
+bool tklist_match(tklist_t *, tkkind_t);
+bool tklist_kind(tklist_t *, tkkind_t);
+bool tklist_exist(tklist_t *);
+void tklist_next(tklist_t **);
 void tklist_show(tklist_t *);
 void tklist_free(tklist_t *);
 

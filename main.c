@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
     assert(ofp != NULL);
     tklist_t *tkl = lexer(ifp);
     astree_t *ast = parser(tkl);
-    // generator(ofp, ast);
+    generator(ofp, ast);
     tklist_show(tkl);
     astree_show(ast);
     tklist_free(tkl);

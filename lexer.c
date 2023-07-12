@@ -7,6 +7,11 @@
 #include "main.h"
 
 tklist_t *lexer(FILE *);
+bool tklist_read(tklist_t **, tkkind_t);
+bool tklist_match(tklist_t *, tkkind_t);
+bool tklist_kind(tklist_t *, tkkind_t);
+bool tklist_exist(tklist_t *);
+void tklist_next(tklist_t **);
 void tklist_show(tklist_t *);
 static void tklist_show_impl(tklist_t *);
 void tklist_free(tklist_t *);
@@ -118,6 +123,27 @@ tklist_t *lexer(FILE *ifp) {
     }
     tkl->next = lexer(ifp);
     return tkl;
+}
+
+bool tklist_read(tklist_t **tkl, tkkind_t kind) {
+    return tklist_match(*tkl, kind) && (tklist_next(tkl), true);
+}
+
+bool tklist_match(tklist_t *tkl, tkkind_t kind) {
+    return tklist_exist(tkl) && tklist_kind(tkl, kind);
+}
+
+bool tklist_kind(tklist_t *tkl, tkkind_t kind) {
+    return tkl->kind == kind;
+}
+
+bool tklist_exist(tklist_t *tkl) {
+    return tkl != NULL;
+}
+
+void tklist_next(tklist_t **tkl) {
+    *tkl = (*tkl)->next;
+    return;
 }
 
 void tklist_show(tklist_t *tkl) {
