@@ -31,9 +31,56 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
     if (ast == NULL) {
         return;
     }
-    generate_expr(ofp, ast);
-    fputs("    popq %rax\n", ofp);
-    generate_stmt(ofp, ast->next);
+    switch (ast->kind) {
+    case AS_BLK:
+        generate_stmt(ofp, ast->blk_body);
+        generate_stmt(ofp, ast->blk_next);
+        break;
+    case AS_IF:
+        generate_expr(ofp, ast->if_cond);
+        fputs("    popq %rax\n", ofp);
+        fputs("    cmpq $0, %rax\n", ofp);
+        fprintf(ofp, "    je .Lelse%zu\n", ast->if_jmp);
+        generate_stmt(ofp, ast->if_then);
+        fprintf(ofp, "    jmp .Lend%zu\n", ast->if_jmp);
+        fprintf(ofp, ".Lelse%zu:\n", ast->if_jmp);
+        generate_stmt(ofp, ast->if_else);
+        fprintf(ofp, ".Lend%zu:\n", ast->if_jmp);
+        break;
+    case AS_WHILE:
+        fprintf(ofp, ".Lbegin%zu:\n", ast->while_jmp);
+        generate_expr(ofp, ast->while_cond);
+        fputs("    popq %rax\n", ofp);
+        fputs("    cmpq $0, %rax\n", ofp);
+        fprintf(ofp, "    je .Lend%zu\n", ast->while_jmp);
+        generate_stmt(ofp, ast->while_body);
+        fprintf(ofp, "    jmp .Lbegin%zu\n", ast->while_jmp);
+        fprintf(ofp, ".Lend%zu:\n", ast->while_jmp);
+        break;
+    case AS_FOR:
+        generate_expr(ofp, ast->for_init);
+        fprintf(ofp, ".Lbegin%zu:\n", ast->for_jmp);
+        generate_expr(ofp, ast->for_cond);
+        fputs("    popq %rax\n", ofp);
+        fputs("    cmpq $0, %rax\n", ofp);
+        fprintf(ofp, "    je .Lend%zu\n", ast->for_jmp);
+        generate_stmt(ofp, ast->for_body);
+        generate_expr(ofp, ast->for_step);
+        fprintf(ofp, "    jmp .Lbegin%zu\n", ast->for_jmp);
+        fprintf(ofp, ".Lend%zu:\n", ast->for_jmp);
+        break;
+    case AS_RET:
+        generate_expr(ofp, ast->bin_left);
+        fputs("    popq %rax\n", ofp);
+        fputs("    movq %rbp, %rsp\n", ofp);
+        fputs("    popq %rbp\n", ofp);
+        fputs("    ret\n", ofp);
+        break;
+    default:
+        generate_expr(ofp, ast);
+        fputs("    popq %rax\n", ofp);
+        break;
+    }
     return;
 }
 
@@ -147,13 +194,6 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fprintf(ofp, "    movq %%rax, -%zu(%%rbp)\n", ast->bin_left->var_ofs << 3);
         fputs("    pushq %rax\n", ofp);
         break;
-    case AS_RET:
-        generate_expr(ofp, ast->ret_val);
-        fputs("    popq %rax\n", ofp);
-        fputs("    movq %rbp, %rsp\n", ofp);
-        fputs("    popq %rbp\n", ofp);
-        fputs("    ret\n", ofp);
-        break;
     case AS_VAR:
         fprintf(ofp, "    movq -%zu(%%rbp), %%rax\n", ast->var_ofs << 3);
         fputs("    pushq %rax\n", ofp);
@@ -185,6 +225,10 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
         return;
     }
     switch (ast->kind) {
+    case AS_BLK:
+        generate_stmt(ofp, ast->blk_body);
+        generate_stmt(ofp, ast->blk_next);
+        break;
     case AS_IF:
         generate_expr(ofp, ast->if_cond);
         fputs("    ldr x0, [sp], #16\n", ofp);
@@ -224,10 +268,6 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
         fputs("    mov sp, x29\n", ofp);
         fputs("    ldr x29, [sp], #16\n", ofp);
         fputs("    ret\n", ofp);
-        break;
-    case AS_BLK:
-        generate_stmt(ofp, ast->blk_body);
-        generate_stmt(ofp, ast->blk_next);
         break;
     default:
         generate_expr(ofp, ast);
