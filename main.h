@@ -36,6 +36,11 @@ typedef enum {
 } tkkind_t;
 
 typedef enum {
+    AS_BLK,
+    AS_IF,
+    AS_WHILE,
+    AS_FOR,
+    AS_RET,
     AS_ADD,
     AS_SUB,
     AS_MUL,
@@ -48,11 +53,6 @@ typedef enum {
     AS_GT,
     AS_GE,
     AS_ASG,
-    AS_IF,
-    AS_WHILE,
-    AS_FOR,
-    AS_RET,
-    AS_BLK,
     AS_VAR,
     AS_NUM,
 } askind_t;
@@ -70,14 +70,8 @@ struct astree_t {
     askind_t kind;
     union {
         struct {
-            astree_t *un_op;
-        };
-        struct {
-            astree_t *bin_left;
-            astree_t *bin_right;
-        };
-        struct {
-            astree_t *ret_val;
+            astree_t *blk_body;
+            astree_t *blk_next;
         };
         struct {
             astree_t *if_cond;
@@ -95,8 +89,11 @@ struct astree_t {
             astree_t *for_body;
         };
         struct {
-            astree_t *blk_body;
-            astree_t *blk_next;
+            astree_t *ret_val;
+        };
+        struct {
+            astree_t *bin_left;
+            astree_t *bin_right;
         };
         struct {
             char *var_id;

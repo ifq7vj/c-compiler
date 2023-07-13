@@ -7,8 +7,8 @@
 
 astree_t *parser(tklist_t *);
 static astree_t *parse_prog(tklist_t **);
-static astree_t *parse_stmt(tklist_t **);
 static astree_t *parse_block(tklist_t **);
+static astree_t *parse_stmt(tklist_t **);
 static astree_t *parse_expr(tklist_t **);
 static astree_t *parse_asg(tklist_t **);
 static astree_t *parse_eq(tklist_t **);
@@ -48,6 +48,16 @@ astree_t *parse_prog(tklist_t **tkl) {
     astree_t *ast = parse_block(tkl);
     assert(!tklist_exist(*tkl));
     return ast;
+}
+
+astree_t *parse_block(tklist_t **tkl) {
+    if (tklist_exist(*tkl) && !tklist_kind(*tkl, TK_RBRC)) {
+        astree_t *blk_body = parse_stmt(tkl);
+        astree_t *blk_next = parse_block(tkl);
+        return astree_newblk(blk_body, blk_next);
+    } else {
+        return NULL;
+    }
 }
 
 astree_t *parse_stmt(tklist_t **tkl) {
@@ -90,16 +100,6 @@ astree_t *parse_stmt(tklist_t **tkl) {
         astree_t *ast = parse_expr(tkl);
         assert(tklist_read(tkl, TK_SCLN));
         return ast;
-    }
-}
-
-astree_t *parse_block(tklist_t **tkl) {
-    if (tklist_exist(*tkl) && !tklist_kind(*tkl, TK_RBRC)) {
-        astree_t *blk_body = parse_stmt(tkl);
-        astree_t *blk_next = parse_block(tkl);
-        return astree_newblk(blk_body, blk_next);
-    } else {
-        return NULL;
     }
 }
 
@@ -201,6 +201,14 @@ astree_t *parse_prim(tklist_t **tkl) {
     }
 }
 
+astree_t *astree_newblk(astree_t *blk_body, astree_t *blk_next) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_BLK;
+    ast->blk_body = blk_body;
+    ast->blk_next = blk_next;
+    return ast;
+}
+
 astree_t *astree_newif(astree_t *if_cond, astree_t *if_then, astree_t *if_else) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_IF;
@@ -232,14 +240,6 @@ astree_t *astree_newret(astree_t *val) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_RET;
     ast->ret_val = val;
-    return ast;
-}
-
-astree_t *astree_newblk(astree_t *blk_body, astree_t *blk_next) {
-    astree_t *ast = malloc(sizeof(astree_t));
-    ast->kind = AS_BLK;
-    ast->blk_body = blk_body;
-    ast->blk_next = blk_next;
     return ast;
 }
 
@@ -308,9 +308,35 @@ void astree_show_impl(astree_t *ast) {
     if (ast == NULL) {
         return;
     }
-    putchar(' ');
-    putchar('(');
+    fputs(" (", stdout);
     switch (ast->kind) {
+    case AS_BLK:
+        fputs("AS_BLK:", stdout);
+        astree_show_impl(ast->blk_body);
+        astree_show_impl(ast->blk_next);
+        break;
+    case AS_IF:
+        fputs("AS_IF:", stdout);
+        astree_show_impl(ast->if_cond);
+        astree_show_impl(ast->if_then);
+        astree_show_impl(ast->if_else);
+        break;
+    case AS_WHILE:
+        fputs("AS_WHILE:", stdout);
+        astree_show_impl(ast->while_cond);
+        astree_show_impl(ast->while_body);
+        break;
+    case AS_FOR:
+        fputs("AS_FOR:", stdout);
+        astree_show_impl(ast->for_init);
+        astree_show_impl(ast->for_cond);
+        astree_show_impl(ast->for_step);
+        astree_show_impl(ast->for_body);
+        break;
+    case AS_RET:
+        fputs("AS_RET:", stdout);
+        astree_show_impl(ast->ret_val);
+        break;
     case AS_ADD:
         fputs("AS_ADD:", stdout);
         astree_show_impl(ast->bin_left);
@@ -371,33 +397,6 @@ void astree_show_impl(astree_t *ast) {
         astree_show_impl(ast->bin_left);
         astree_show_impl(ast->bin_right);
         break;
-    case AS_IF:
-        fputs("AS_IF:", stdout);
-        astree_show_impl(ast->if_cond);
-        astree_show_impl(ast->if_then);
-        astree_show_impl(ast->if_else);
-        break;
-    case AS_WHILE:
-        fputs("AS_WHILE:", stdout);
-        astree_show_impl(ast->while_cond);
-        astree_show_impl(ast->while_body);
-        break;
-    case AS_FOR:
-        fputs("AS_FOR:", stdout);
-        astree_show_impl(ast->for_init);
-        astree_show_impl(ast->for_cond);
-        astree_show_impl(ast->for_step);
-        astree_show_impl(ast->for_body);
-        break;
-    case AS_RET:
-        fputs("AS_RET:", stdout);
-        astree_show_impl(ast->ret_val);
-        break;
-    case AS_BLK:
-        fputs("AS_BLK:", stdout);
-        astree_show_impl(ast->blk_body);
-        astree_show_impl(ast->blk_next);
-        break;
     case AS_VAR:
         printf("AS_VAR: '%s'", ast->var_id);
         break;
@@ -407,7 +406,7 @@ void astree_show_impl(astree_t *ast) {
     default:
         assert(false);
     }
-    putchar(')');
+    fputs(")", stdout);
     return;
 }
 
@@ -416,20 +415,9 @@ void astree_free(astree_t *ast) {
         return;
     }
     switch (ast->kind) {
-    case AS_ADD:
-    case AS_SUB:
-    case AS_MUL:
-    case AS_DIV:
-    case AS_MOD:
-    case AS_EQ:
-    case AS_NE:
-    case AS_LT:
-    case AS_LE:
-    case AS_GT:
-    case AS_GE:
-    case AS_ASG:
-        astree_free(ast->bin_left);
-        astree_free(ast->bin_right);
+    case AS_BLK:
+        astree_free(ast->blk_body);
+        astree_free(ast->blk_next);
         break;
     case AS_IF:
         astree_free(ast->if_cond);
@@ -449,9 +437,20 @@ void astree_free(astree_t *ast) {
     case AS_RET:
         astree_free(ast->ret_val);
         break;
-    case AS_BLK:
-        astree_free(ast->blk_body);
-        astree_free(ast->blk_next);
+    case AS_ADD:
+    case AS_SUB:
+    case AS_MUL:
+    case AS_DIV:
+    case AS_MOD:
+    case AS_EQ:
+    case AS_NE:
+    case AS_LT:
+    case AS_LE:
+    case AS_GT:
+    case AS_GE:
+    case AS_ASG:
+        astree_free(ast->bin_left);
+        astree_free(ast->bin_right);
         break;
     case AS_VAR:
     case AS_NUM:

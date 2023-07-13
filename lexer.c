@@ -226,11 +226,11 @@ void tklist_show_impl(tklist_t *tkl) {
     case TK_RET:
         fputs("TK_RET: 'return'", stdout);
         break;
-    case TK_NUM:
-        printf("TK_NUM: '%lld'", tkl->num);
-        break;
     case TK_ID:
         printf("TK_ID: '%s'", tkl->id);
+        break;
+    case TK_NUM:
+        printf("TK_NUM: '%lld'", tkl->num);
         break;
     default:
         assert(false);
