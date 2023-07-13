@@ -194,6 +194,10 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         fprintf(ofp, "    movq %%rax, -%zu(%%rbp)\n", ast->bin_left->var_ofs << 3);
         fputs("    pushq %rax\n", ofp);
         break;
+    case AS_FNC:
+        fprintf(ofp, "    call %s\n", ast->fnc_id);
+        fputs("    pushq %rax\n", ofp);
+        break;
     case AS_VAR:
         fprintf(ofp, "    movq -%zu(%%rbp), %%rax\n", ast->var_ofs << 3);
         fputs("    pushq %rax\n", ofp);
