@@ -21,6 +21,7 @@ typedef enum {
     TK_GT,
     TK_GE,
     TK_ASG,
+    TK_CMA,
     TK_LPRN,
     TK_RPRN,
     TK_LBRC,
@@ -54,6 +55,7 @@ typedef enum {
     AS_GE,
     AS_ASG,
     AS_FNC,
+    AS_ARG,
     AS_VAR,
     AS_NUM,
 } askind_t;
@@ -101,6 +103,11 @@ struct astree_t {
         };
         struct {
             char *fnc_id;
+            astree_t *fnc_arg;
+        };
+        struct {
+            astree_t *arg_val;
+            astree_t *arg_next;
         };
         struct {
             char *var_id;

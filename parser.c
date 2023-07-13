@@ -17,6 +17,7 @@ static astree_t *parse_add(tklist_t **);
 static astree_t *parse_mul(tklist_t **);
 static astree_t *parse_unary(tklist_t **);
 static astree_t *parse_prim(tklist_t **);
+static astree_t *parse_arg(tklist_t **);
 static astree_t *astree_newif(astree_t *, astree_t *, astree_t *);
 static astree_t *astree_newwhile(astree_t *, astree_t *);
 static astree_t *astree_newfor(astree_t *, astree_t *, astree_t *, astree_t *);
@@ -24,6 +25,7 @@ static astree_t *astree_newret(astree_t *);
 static astree_t *astree_newblk(astree_t *, astree_t *);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
 static astree_t *astree_newfnc(char *);
+static astree_t *astree_newarg(astree_t *, astree_t *);
 static astree_t *astree_newvar(char *);
 static astree_t *astree_newnum(long long);
 static idlist_t *idlist_newvar(char *, idlist_t *);
@@ -195,6 +197,7 @@ astree_t *parse_prim(tklist_t **tkl) {
             astree_t *ast = astree_newfnc((*tkl)->id);
             assert(tklist_read(tkl, TK_ID));
             assert(tklist_read(tkl, TK_LPRN));
+            ast->fnc_arg = parse_arg(tkl);
             assert(tklist_read(tkl, TK_RPRN));
             return ast;
         } else {
@@ -208,6 +211,20 @@ astree_t *parse_prim(tklist_t **tkl) {
         return ast;
     } else {
         assert(false);
+    }
+}
+
+astree_t *parse_arg(tklist_t **tkl) {
+    if (tklist_exist(*tkl) && !tklist_match(*tkl, TK_RPRN)) {
+        astree_t *ast_val = parse_expr(tkl);
+        if (tklist_read(tkl, TK_CMA)) {
+            astree_t *ast_arg = parse_arg(tkl);
+            return astree_newarg(ast_val, ast_arg);
+        } else {
+            return astree_newarg(ast_val, NULL);
+        }
+    } else {
+        return NULL;
     }
 }
 
@@ -268,6 +285,14 @@ astree_t *astree_newfnc(char *id) {
     astree_t *ast = malloc(sizeof(astree_t));
     ast->kind = AS_FNC;
     ast->fnc_id = id;
+    return ast;
+}
+
+astree_t *astree_newarg(astree_t *arg_val, astree_t *arg_next) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_ARG;
+    ast->arg_val = arg_val;
+    ast->arg_next = arg_next;
     return ast;
 }
 
@@ -419,6 +444,12 @@ void astree_show_impl(astree_t *ast) {
         break;
     case AS_FNC:
         fprintf(stdout, "AS_FNC: '%s'", ast->fnc_id);
+        astree_show_impl(ast->fnc_arg);
+        break;
+    case AS_ARG:
+        fputs("AS_ARG:", stdout);
+        astree_show_impl(ast->arg_val);
+        astree_show_impl(ast->arg_next);
         break;
     case AS_VAR:
         printf("AS_VAR: '%s'", ast->var_id);
@@ -476,6 +507,12 @@ void astree_free(astree_t *ast) {
         astree_free(ast->bin_right);
         break;
     case AS_FNC:
+        astree_free(ast->fnc_arg);
+        break;
+    case AS_ARG:
+        astree_free(ast->arg_val);
+        astree_free(ast->arg_next);
+        break;
     case AS_VAR:
     case AS_NUM:
         break;

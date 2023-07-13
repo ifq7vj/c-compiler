@@ -67,6 +67,8 @@ tklist_t *lexer(FILE *ifp) {
             ungetc(chr, ifp);
             tkl->kind = TK_GT;
         }
+    } else if (chr == ',') {
+        tkl->kind = TK_CMA;
     } else if (chr == '(') {
         tkl->kind = TK_LPRN;
     } else if (chr == ')') {
@@ -195,6 +197,9 @@ void tklist_show_impl(tklist_t *tkl) {
         break;
     case TK_ASG:
         fputs("TK_ASG: '='", stdout);
+        break;
+    case TK_CMA:
+        fputs("TK_CMA: ','", stdout);
         break;
     case TK_LPRN:
         fputs("TK_LPRN: '('", stdout);
