@@ -23,6 +23,7 @@ static astree_t *astree_newfor(astree_t *, astree_t *, astree_t *, astree_t *);
 static astree_t *astree_newret(astree_t *);
 static astree_t *astree_newblk(astree_t *, astree_t *);
 static astree_t *astree_newbin(askind_t, astree_t *, astree_t *);
+static astree_t *astree_newfnc(char *);
 static astree_t *astree_newvar(char *);
 static astree_t *astree_newnum(long long);
 static idlist_t *idlist_newvar(char *, idlist_t *);
@@ -185,17 +186,25 @@ astree_t *parse_unary(tklist_t **tkl) {
 }
 
 astree_t *parse_prim(tklist_t **tkl) {
-    if (tklist_match(*tkl, TK_NUM)) {
-        astree_t *ast = astree_newnum((*tkl)->num);
-        tklist_next(tkl);
-        return ast;
-    } else if (tklist_match(*tkl, TK_ID)) {
-        astree_t *ast = astree_newvar((*tkl)->id);
-        tklist_next(tkl);
-        return ast;
-    } else if (tklist_read(tkl, TK_LPRN)) {
+    if (tklist_read(tkl, TK_LPRN)) {
         astree_t *ast = parse_expr(tkl);
         assert(tklist_read(tkl, TK_RPRN));
+        return ast;
+    } else if (tklist_match(*tkl, TK_ID)) {
+        if (tklist_match((*tkl)->next, TK_LPRN)) {
+            astree_t *ast = astree_newfnc((*tkl)->id);
+            assert(tklist_read(tkl, TK_ID));
+            assert(tklist_read(tkl, TK_LPRN));
+            assert(tklist_read(tkl, TK_RPRN));
+            return ast;
+        } else {
+            astree_t *ast = astree_newvar((*tkl)->id);
+            assert(tklist_read(tkl, TK_ID));
+            return ast;
+        }
+    } else if (tklist_match(*tkl, TK_NUM)) {
+        astree_t *ast = astree_newnum((*tkl)->num);
+        tklist_next(tkl);
         return ast;
     } else {
         assert(false);
@@ -252,6 +261,13 @@ astree_t *astree_newbin(askind_t kind, astree_t *bin_left, astree_t *bin_right) 
     ast->kind = kind;
     ast->bin_left = bin_left;
     ast->bin_right = bin_right;
+    return ast;
+}
+
+astree_t *astree_newfnc(char *id) {
+    astree_t *ast = malloc(sizeof(astree_t));
+    ast->kind = AS_FNC;
+    ast->fnc_id = id;
     return ast;
 }
 
@@ -401,6 +417,9 @@ void astree_show_impl(astree_t *ast) {
         astree_show_impl(ast->bin_left);
         astree_show_impl(ast->bin_right);
         break;
+    case AS_FNC:
+        fprintf(stdout, "AS_FNC: '%s'", ast->fnc_id);
+        break;
     case AS_VAR:
         printf("AS_VAR: '%s'", ast->var_id);
         break;
@@ -456,6 +475,7 @@ void astree_free(astree_t *ast) {
         astree_free(ast->bin_left);
         astree_free(ast->bin_right);
         break;
+    case AS_FNC:
     case AS_VAR:
     case AS_NUM:
         break;

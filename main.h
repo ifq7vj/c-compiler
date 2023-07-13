@@ -53,6 +53,7 @@ typedef enum {
     AS_GT,
     AS_GE,
     AS_ASG,
+    AS_FNC,
     AS_VAR,
     AS_NUM,
 } askind_t;
@@ -97,6 +98,9 @@ struct astree_t {
         struct {
             astree_t *bin_left;
             astree_t *bin_right;
+        };
+        struct {
+            char *fnc_id;
         };
         struct {
             char *var_id;
