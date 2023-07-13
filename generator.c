@@ -210,12 +210,12 @@ void generate_expr(FILE *ofp, astree_t *ast) {
 void generate_prog(FILE *ofp, astree_t *ast) {
     fputs(".global main\n", ofp);
     fputs("main:\n", ofp);
-    fputs("    str x29, [sp, #-16]!\n", ofp);
+    fputs("    stp x29, x30, [sp, #-16]!\n", ofp);
     fputs("    mov x29, sp\n", ofp);
     fputs("    sub sp, sp, #256\n", ofp);
     generate_stmt(ofp, ast);
     fputs("    mov sp, x29\n", ofp);
-    fputs("    ldr x29, [sp], #16\n", ofp);
+    fputs("    ldp x29, x30, [sp], #16\n", ofp);
     fputs("    ret\n", ofp);
     return;
 }
@@ -266,7 +266,7 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
         generate_expr(ofp, ast->bin_left);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fputs("    mov sp, x29\n", ofp);
-        fputs("    ldr x29, [sp], #16\n", ofp);
+        fputs("    ldp x29, x30, [sp], #16\n", ofp);
         fputs("    ret\n", ofp);
         break;
     default:
@@ -378,6 +378,10 @@ void generate_expr(FILE *ofp, astree_t *ast) {
         generate_expr(ofp, ast->bin_right);
         fputs("    ldr x0, [sp], #16\n", ofp);
         fprintf(ofp, "    str x0, [x29, #-%zu]\n", ast->bin_left->var_ofs << 4);
+        fputs("    str x0, [sp, #-16]!\n", ofp);
+        break;
+    case AS_FNC:
+        fprintf(ofp, "    bl %s\n", ast->fnc_id);
         fputs("    str x0, [sp, #-16]!\n", ofp);
         break;
     case AS_VAR:
