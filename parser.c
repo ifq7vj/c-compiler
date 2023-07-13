@@ -33,6 +33,7 @@ static void astree_show_impl(astree_t *);
 void astree_free(astree_t *);
 
 idlist_t *local;
+size_t jmp = 0;
 
 astree_t *parser(tklist_t *tkl) {
     local = malloc(sizeof(idlist_t));
@@ -215,6 +216,7 @@ astree_t *astree_newif(astree_t *if_cond, astree_t *if_then, astree_t *if_else) 
     ast->if_cond = if_cond;
     ast->if_then = if_then;
     ast->if_else = if_else;
+    ast->if_jmp = jmp++;
     return ast;
 }
 
@@ -223,6 +225,7 @@ astree_t *astree_newwhile(astree_t *while_cond, astree_t *while_body) {
     ast->kind = AS_WHILE;
     ast->while_cond = while_cond;
     ast->while_body = while_body;
+    ast->while_jmp = jmp++;
     return ast;
 }
 
@@ -233,6 +236,7 @@ astree_t *astree_newfor(astree_t *for_init, astree_t *for_cond, astree_t *for_st
     ast->for_cond = for_cond;
     ast->for_step = for_step;
     ast->for_body = for_body;
+    ast->for_jmp = jmp++;
     return ast;
 }
 

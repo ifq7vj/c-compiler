@@ -185,6 +185,39 @@ void generate_stmt(FILE *ofp, astree_t *ast) {
         return;
     }
     switch (ast->kind) {
+    case AS_IF:
+        generate_expr(ofp, ast->if_cond);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        fputs("    cmp x0, #0\n", ofp);
+        fprintf(ofp, "    beq .Lelse%zu\n", ast->if_jmp);
+        generate_stmt(ofp, ast->if_then);
+        fprintf(ofp, "    b .Lend%zu\n", ast->if_jmp);
+        fprintf(ofp, ".Lelse%zu:\n", ast->if_jmp);
+        generate_stmt(ofp, ast->if_else);
+        fprintf(ofp, ".Lend%zu:\n", ast->if_jmp);
+        break;
+    case AS_WHILE:
+        fprintf(ofp, ".Lbegin%zu:\n", ast->while_jmp);
+        generate_expr(ofp, ast->while_cond);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        fputs("    cmp x0, #0\n", ofp);
+        fprintf(ofp, "    beq .Lend%zu\n", ast->while_jmp);
+        generate_stmt(ofp, ast->while_body);
+        fprintf(ofp, "    b .Lbegin%zu\n", ast->while_jmp);
+        fprintf(ofp, ".Lend%zu:\n", ast->while_jmp);
+        break;
+    case AS_FOR:
+        generate_expr(ofp, ast->for_init);
+        fprintf(ofp, ".Lbegin%zu:\n", ast->for_jmp);
+        generate_expr(ofp, ast->for_cond);
+        fputs("    ldr x0, [sp], #16\n", ofp);
+        fputs("    cmp x0, #0\n", ofp);
+        fprintf(ofp, "    beq .Lend%zu\n", ast->for_jmp);
+        generate_stmt(ofp, ast->for_body);
+        generate_expr(ofp, ast->for_step);
+        fprintf(ofp, "    b .Lbegin%zu\n", ast->for_jmp);
+        fprintf(ofp, ".Lend%zu:\n", ast->for_jmp);
+        break;
     case AS_RET:
         generate_expr(ofp, ast->bin_left);
         fputs("    ldr x0, [sp], #16\n", ofp);

@@ -77,16 +77,19 @@ struct astree_t {
             astree_t *if_cond;
             astree_t *if_then;
             astree_t *if_else;
+            size_t if_jmp;
         };
         struct {
             astree_t *while_cond;
             astree_t *while_body;
+            size_t while_jmp;
         };
         struct {
             astree_t *for_init;
             astree_t *for_cond;
             astree_t *for_step;
             astree_t *for_body;
+            size_t for_jmp;
         };
         struct {
             astree_t *ret_val;
